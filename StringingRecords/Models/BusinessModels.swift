@@ -157,9 +157,11 @@ enum InventoryMovementType: String, Codable {
     case adjustment = "库存调整"
 }
 
-enum MoneyDirection: String, Codable {
+enum MoneyDirection: String, CaseIterable, Codable, Identifiable {
     case incoming = "收款"
     case outgoing = "付款"
+
+    var id: String { rawValue }
 }
 
 struct DashboardMetric: Identifiable {
@@ -354,6 +356,161 @@ struct InventoryItemDraft: Equatable {
             quantity: quantity,
             lowStockThreshold: lowStockThreshold,
             location: location.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
+}
+
+struct OrderLineItemDraft: Equatable {
+    var productCode = ""
+    var productName = ""
+    var quantity = 1
+    var unitPrice = 0.0
+
+    var normalizedProductCode: String {
+        productCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    var validationMessage: String? {
+        if normalizedProductCode.isEmpty {
+            return "Product code is required."
+        }
+
+        if productName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Product name is required."
+        }
+
+        if quantity <= 0 {
+            return "Quantity must be greater than zero."
+        }
+
+        if unitPrice < 0 {
+            return "Unit price cannot be negative."
+        }
+
+        return nil
+    }
+
+    func makeLineItem() -> OrderLineItem {
+        OrderLineItem(
+            productCode: normalizedProductCode,
+            productName: productName.trimmingCharacters(in: .whitespacesAndNewlines),
+            quantity: quantity,
+            unitPrice: unitPrice
+        )
+    }
+}
+
+struct PurchaseOrderDraft: Equatable {
+    var date = Date()
+    var supplierName = ""
+    var item = OrderLineItemDraft()
+    var paidAmount = 0.0
+
+    var validationMessage: String? {
+        if supplierName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Supplier name is required."
+        }
+
+        if let itemMessage = item.validationMessage {
+            return itemMessage
+        }
+
+        if paidAmount < 0 {
+            return "Paid amount cannot be negative."
+        }
+
+        if paidAmount > item.makeLineItem().lineTotal {
+            return "Paid amount cannot be greater than order total."
+        }
+
+        return nil
+    }
+
+    func makeOrder(id: String) -> PurchaseOrder {
+        let lineItem = item.makeLineItem()
+        let status: BusinessOrderStatus = paidAmount >= lineItem.lineTotal ? .paid : .unpaid
+
+        return PurchaseOrder(
+            id: id,
+            date: date,
+            supplierName: supplierName.trimmingCharacters(in: .whitespacesAndNewlines),
+            items: [lineItem],
+            paidAmount: paidAmount,
+            status: status
+        )
+    }
+}
+
+struct SalesOrderDraft: Equatable {
+    var date = Date()
+    var customerName = ""
+    var item = OrderLineItemDraft()
+    var paidAmount = 0.0
+
+    var validationMessage: String? {
+        if customerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Customer name is required."
+        }
+
+        if let itemMessage = item.validationMessage {
+            return itemMessage
+        }
+
+        if paidAmount < 0 {
+            return "Paid amount cannot be negative."
+        }
+
+        if paidAmount > item.makeLineItem().lineTotal {
+            return "Paid amount cannot be greater than order total."
+        }
+
+        return nil
+    }
+
+    func makeOrder(id: String) -> SalesOrder {
+        let lineItem = item.makeLineItem()
+        let status: BusinessOrderStatus = paidAmount >= lineItem.lineTotal ? .paid : .unpaid
+
+        return SalesOrder(
+            id: id,
+            date: date,
+            customerName: customerName.trimmingCharacters(in: .whitespacesAndNewlines),
+            items: [lineItem],
+            paidAmount: paidAmount,
+            status: status
+        )
+    }
+}
+
+struct MoneyRecordDraft: Equatable {
+    var date = Date()
+    var direction = MoneyDirection.incoming
+    var counterparty = ""
+    var amount = 0.0
+    var relatedOrderID = ""
+    var note = ""
+
+    var validationMessage: String? {
+        if counterparty.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Counterparty is required."
+        }
+
+        if amount <= 0 {
+            return "Amount must be greater than zero."
+        }
+
+        return nil
+    }
+
+    func makeRecord(id: String) -> MoneyRecord {
+        MoneyRecord(
+            id: id,
+            date: date,
+            direction: direction,
+            counterparty: counterparty.trimmingCharacters(in: .whitespacesAndNewlines),
+            amount: amount,
+            relatedOrderID: relatedOrderID.trimmingCharacters(in: .whitespacesAndNewlines),
+            note: note.trimmingCharacters(in: .whitespacesAndNewlines)
         )
     }
 }

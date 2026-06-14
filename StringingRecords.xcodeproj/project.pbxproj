@@ -18,13 +18,14 @@
 		A10000000000000000000028 /* RecordFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* RecordFormView.swift */; };
 		A10000000000000000000029 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* Assets.xcassets */; };
 		B10000000000000000000020 /* BusinessModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000010 /* BusinessModels.swift */; };
-		B10000000000000000000021 /* MockBusinessData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* MockBusinessData.swift */; };
+		B10000000000000000000021 /* InitialBusinessData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000011 /* InitialBusinessData.swift */; };
 		B10000000000000000000022 /* BusinessStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000012 /* BusinessStore.swift */; };
 		B10000000000000000000023 /* ReusableComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000013 /* ReusableComponents.swift */; };
 		B10000000000000000000024 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* AppShellView.swift */; };
 		B10000000000000000000025 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* DashboardView.swift */; };
 		B10000000000000000000026 /* BusinessModulePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* BusinessModulePages.swift */; };
 		C10000000000000000000020 /* InventoryEditorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000010 /* InventoryEditorViews.swift */; };
+		D10000000000000000000020 /* TransactionEditorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = D10000000000000000000010 /* TransactionEditorViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,13 +41,14 @@
 		A10000000000000000000019 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000000000000000000001A /* StringingRecords.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StringingRecords.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B10000000000000000000010 /* BusinessModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessModels.swift; sourceTree = "<group>"; };
-		B10000000000000000000011 /* MockBusinessData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockBusinessData.swift; sourceTree = "<group>"; };
+		B10000000000000000000011 /* InitialBusinessData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InitialBusinessData.swift; sourceTree = "<group>"; };
 		B10000000000000000000012 /* BusinessStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessStore.swift; sourceTree = "<group>"; };
 		B10000000000000000000013 /* ReusableComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReusableComponents.swift; sourceTree = "<group>"; };
 		B10000000000000000000014 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
 		B10000000000000000000015 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		B10000000000000000000016 /* BusinessModulePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessModulePages.swift; sourceTree = "<group>"; };
 		C10000000000000000000010 /* InventoryEditorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InventoryEditorViews.swift; sourceTree = "<group>"; };
+		D10000000000000000000010 /* TransactionEditorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransactionEditorViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -103,7 +105,7 @@
 		B10000000000000000000001 /* Data */ = {
 			isa = PBXGroup;
 			children = (
-				B10000000000000000000011 /* MockBusinessData.swift */,
+				B10000000000000000000011 /* InitialBusinessData.swift */,
 			);
 			path = Data;
 			sourceTree = "<group>";
@@ -126,6 +128,7 @@
 				B10000000000000000000015 /* DashboardView.swift */,
 				B10000000000000000000016 /* BusinessModulePages.swift */,
 				C10000000000000000000010 /* InventoryEditorViews.swift */,
+				D10000000000000000000010 /* TransactionEditorViews.swift */,
 				B10000000000000000000013 /* ReusableComponents.swift */,
 				A10000000000000000000017 /* RecordCardView.swift */,
 				A10000000000000000000018 /* RecordFormView.swift */,
@@ -207,7 +210,7 @@
 				A10000000000000000000022 /* StringingRecord.swift in Sources */,
 				A10000000000000000000023 /* RecordsBackup.swift in Sources */,
 				B10000000000000000000020 /* BusinessModels.swift in Sources */,
-				B10000000000000000000021 /* MockBusinessData.swift in Sources */,
+				B10000000000000000000021 /* InitialBusinessData.swift in Sources */,
 				A10000000000000000000024 /* RecordStore.swift in Sources */,
 				B10000000000000000000022 /* BusinessStore.swift in Sources */,
 				A10000000000000000000025 /* RecordsExportDocument.swift in Sources */,
@@ -217,6 +220,7 @@
 				B10000000000000000000025 /* DashboardView.swift in Sources */,
 				B10000000000000000000026 /* BusinessModulePages.swift in Sources */,
 				C10000000000000000000020 /* InventoryEditorViews.swift in Sources */,
+				D10000000000000000000020 /* TransactionEditorViews.swift in Sources */,
 				A10000000000000000000027 /* RecordCardView.swift in Sources */,
 				A10000000000000000000028 /* RecordFormView.swift in Sources */,
 			);
