@@ -135,7 +135,7 @@ enum QuickAction: String, CaseIterable, Identifiable {
     }
 }
 
-enum ProductCategory: String, CaseIterable, Identifiable {
+enum ProductCategory: String, CaseIterable, Codable, Identifiable {
     case string = "羽毛球线"
     case racket = "羽毛球拍"
     case service = "穿线服务"
@@ -144,20 +144,20 @@ enum ProductCategory: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-enum BusinessOrderStatus: String {
+enum BusinessOrderStatus: String, Codable {
     case draft = "草稿"
     case completed = "已完成"
     case unpaid = "未结清"
     case paid = "已结清"
 }
 
-enum InventoryMovementType: String {
+enum InventoryMovementType: String, Codable {
     case purchaseIn = "采购入库"
     case salesOut = "销售出库"
     case adjustment = "库存调整"
 }
 
-enum MoneyDirection: String {
+enum MoneyDirection: String, Codable {
     case incoming = "收款"
     case outgoing = "付款"
 }
@@ -171,7 +171,7 @@ struct DashboardMetric: Identifiable {
     let color: Color
 }
 
-struct BusinessSnapshot {
+struct BusinessSnapshot: Codable {
     var products: [BusinessProduct]
     var inventoryItems: [InventoryItem]
     var salesOrders: [SalesOrder]
@@ -181,7 +181,7 @@ struct BusinessSnapshot {
     var notices: [InformationNotice]
 }
 
-struct BusinessProduct: Identifiable, Hashable {
+struct BusinessProduct: Codable, Identifiable, Hashable {
     var id: String { code }
     let code: String
     let name: String
@@ -191,7 +191,7 @@ struct BusinessProduct: Identifiable, Hashable {
     let costPrice: Double
 }
 
-struct InventoryItem: Identifiable, Hashable {
+struct InventoryItem: Codable, Identifiable, Hashable {
     var id: String { product.code }
     let product: BusinessProduct
     var quantity: Int
@@ -203,7 +203,7 @@ struct InventoryItem: Identifiable, Hashable {
     }
 }
 
-struct SalesOrder: Identifiable, Hashable {
+struct SalesOrder: Codable, Identifiable, Hashable {
     let id: String
     let date: Date
     let customerName: String
@@ -220,7 +220,7 @@ struct SalesOrder: Identifiable, Hashable {
     }
 }
 
-struct PurchaseOrder: Identifiable, Hashable {
+struct PurchaseOrder: Codable, Identifiable, Hashable {
     let id: String
     let date: Date
     let supplierName: String
@@ -237,8 +237,8 @@ struct PurchaseOrder: Identifiable, Hashable {
     }
 }
 
-struct OrderLineItem: Identifiable, Hashable {
-    let id = UUID()
+struct OrderLineItem: Codable, Identifiable, Hashable {
+    var id = UUID()
     let productCode: String
     let productName: String
     let quantity: Int
@@ -249,7 +249,7 @@ struct OrderLineItem: Identifiable, Hashable {
     }
 }
 
-struct InventoryMovement: Identifiable, Hashable {
+struct InventoryMovement: Codable, Identifiable, Hashable {
     let id: String
     let date: Date
     let type: InventoryMovementType
@@ -259,7 +259,7 @@ struct InventoryMovement: Identifiable, Hashable {
     let reference: String
 }
 
-struct MoneyRecord: Identifiable, Hashable {
+struct MoneyRecord: Codable, Identifiable, Hashable {
     let id: String
     let date: Date
     let direction: MoneyDirection
@@ -278,8 +278,82 @@ struct HotProduct: Identifiable, Hashable {
     let salesAmount: Double
 }
 
-struct InformationNotice: Identifiable, Hashable {
+struct InformationNotice: Codable, Identifiable, Hashable {
     let id: String
     let title: String
     let detail: String
+}
+
+struct InventoryItemDraft: Equatable {
+    var code = ""
+    var name = ""
+    var category = ProductCategory.string
+    var brand = ""
+    var salePrice = 0.0
+    var costPrice = 0.0
+    var quantity = 0
+    var lowStockThreshold = 0
+    var location = ""
+
+    init() {}
+
+    init(item: InventoryItem) {
+        code = item.product.code
+        name = item.product.name
+        category = item.product.category
+        brand = item.product.brand
+        salePrice = item.product.salePrice
+        costPrice = item.product.costPrice
+        quantity = item.quantity
+        lowStockThreshold = item.lowStockThreshold
+        location = item.location
+    }
+
+    var normalizedCode: String {
+        code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    }
+
+    var validationMessage: String? {
+        if normalizedCode.isEmpty {
+            return "Product code is required."
+        }
+
+        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "Product name is required."
+        }
+
+        if salePrice < 0 || costPrice < 0 {
+            return "Prices cannot be negative."
+        }
+
+        if quantity < 0 {
+            return "Quantity cannot be negative."
+        }
+
+        if lowStockThreshold < 0 {
+            return "Low stock threshold cannot be negative."
+        }
+
+        return nil
+    }
+
+    func makeProduct() -> BusinessProduct {
+        BusinessProduct(
+            code: normalizedCode,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            category: category,
+            brand: brand.trimmingCharacters(in: .whitespacesAndNewlines),
+            salePrice: salePrice,
+            costPrice: costPrice
+        )
+    }
+
+    func makeInventoryItem() -> InventoryItem {
+        InventoryItem(
+            product: makeProduct(),
+            quantity: quantity,
+            lowStockThreshold: lowStockThreshold,
+            location: location.trimmingCharacters(in: .whitespacesAndNewlines)
+        )
+    }
 }

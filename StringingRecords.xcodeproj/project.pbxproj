@@ -24,6 +24,7 @@
 		B10000000000000000000024 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000014 /* AppShellView.swift */; };
 		B10000000000000000000025 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000015 /* DashboardView.swift */; };
 		B10000000000000000000026 /* BusinessModulePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000000000000000000016 /* BusinessModulePages.swift */; };
+		C10000000000000000000020 /* InventoryEditorViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C10000000000000000000010 /* InventoryEditorViews.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +46,7 @@
 		B10000000000000000000014 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
 		B10000000000000000000015 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		B10000000000000000000016 /* BusinessModulePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BusinessModulePages.swift; sourceTree = "<group>"; };
+		C10000000000000000000010 /* InventoryEditorViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InventoryEditorViews.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +125,7 @@
 				A10000000000000000000016 /* ContentView.swift */,
 				B10000000000000000000015 /* DashboardView.swift */,
 				B10000000000000000000016 /* BusinessModulePages.swift */,
+				C10000000000000000000010 /* InventoryEditorViews.swift */,
 				B10000000000000000000013 /* ReusableComponents.swift */,
 				A10000000000000000000017 /* RecordCardView.swift */,
 				A10000000000000000000018 /* RecordFormView.swift */,
@@ -213,6 +216,7 @@
 				B10000000000000000000024 /* AppShellView.swift in Sources */,
 				B10000000000000000000025 /* DashboardView.swift in Sources */,
 				B10000000000000000000026 /* BusinessModulePages.swift in Sources */,
+				C10000000000000000000020 /* InventoryEditorViews.swift in Sources */,
 				A10000000000000000000027 /* RecordCardView.swift in Sources */,
 				A10000000000000000000028 /* RecordFormView.swift in Sources */,
 			);

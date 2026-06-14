@@ -7,8 +7,9 @@ This is a native SwiftUI prototype for managing a small badminton stringing and 
 This project is currently a prototype.
 
 - Stringing records are functional and saved locally on device.
-- Dashboard, purchase, sales, inventory, cashflow, information center, and maintenance pages currently use mock business data.
-- Inventory, purchase, sales, and cashflow editing screens are not fully persistent yet.
+- Inventory and product records are editable in the app and saved locally on device.
+- Dashboard, purchase, sales, cashflow, information center, and maintenance pages still use prototype business data.
+- Purchase, sales, and cashflow editing screens are not fully persistent yet.
 
 ## Requirements
 
@@ -94,12 +95,17 @@ The sales page currently displays mock sales orders and receivable balances.
 
 ### 库存管理
 
-The inventory page currently displays:
+The inventory page supports:
 
 - Current stock quantity
 - Low-stock status
 - Storage location
 - Recent inventory movements
+- Add new inventory items
+- Edit product and inventory details
+- Adjust stock quantity
+- Delete inventory items
+- Save inventory changes locally
 
 ### 钱流管理
 
@@ -117,47 +123,31 @@ The information center currently displays mock product master data and prototype
 
 The maintenance page records planned maintenance features such as backup, import, inventory persistence, and low-stock threshold settings.
 
-## How To Modify Inventory Now
+## How To Modify Inventory
 
-Inventory is currently mock data, not a saved editable database.
+Inventory can now be modified directly inside the app.
 
-To modify inventory for prototype testing, edit:
+1. Open `库存管理`.
+2. Tap the `+` button in the top-right corner to add a new inventory item.
+3. Use the `...` menu on an existing item to:
+   - `库存调整`: increase or decrease stock quantity and create an inventory movement record.
+   - `编辑商品`: edit product name, category, brand, price, cost, quantity, low-stock threshold, and location.
+   - `删除`: remove the item from inventory.
+4. Changes are saved automatically after tapping `Save`.
 
-`StringingRecords/Data/MockBusinessData.swift`
+Saved inventory data is stored locally in the app sandbox:
 
-Look for the `inventoryItems` array:
+`Application Support/StringingRecords/business-data.json`
 
-```swift
-let inventoryItems = [
-    InventoryItem(product: products[0], quantity: 18, lowStockThreshold: 6, location: "Main Box"),
-    InventoryItem(product: products[1], quantity: 4, lowStockThreshold: 6, location: "Main Box"),
-    InventoryItem(product: products[2], quantity: 3, lowStockThreshold: 5, location: "Main Box"),
-    InventoryItem(product: products[3], quantity: 8, lowStockThreshold: 5, location: "Main Box"),
-    InventoryItem(product: products[4], quantity: 2, lowStockThreshold: 1, location: "Racket Rack")
-]
-```
-
-Change these fields:
-
-- `quantity`: current stock quantity
-- `lowStockThreshold`: low-stock warning threshold
-- `location`: where the item is stored
-
-Example:
-
-```swift
-InventoryItem(product: products[1], quantity: 12, lowStockThreshold: 6, location: "Main Box")
-```
-
-After changing mock data, rebuild and run the app in Xcode.
+The first app launch uses `StringingRecords/Data/MockBusinessData.swift` as seed data. After the local JSON file exists, the app loads saved data from `business-data.json`.
 
 ## Current Data Files
 
 - `StringingRecords/Data/MockBusinessData.swift`
-  - Mock products, inventory, sales orders, purchase orders, inventory movements, money records, and notices.
+  - Initial seed products, inventory, sales orders, purchase orders, inventory movements, money records, and notices.
 
 - `StringingRecords/Stores/BusinessStore.swift`
-  - Calculates dashboard metrics from mock business data.
+  - Loads, saves, and updates business data. Inventory/product changes are persisted here.
 
 - `StringingRecords/Stores/RecordStore.swift`
   - Saves and loads real stringing records locally.
@@ -172,6 +162,9 @@ After changing mock data, rebuild and run the app in Xcode.
 
 - `StringingRecords/Views/BusinessModulePages.swift`
   - Purchase, sales, inventory, cashflow, information center, and maintenance pages.
+
+- `StringingRecords/Views/InventoryEditorViews.swift`
+  - Add/edit inventory item forms, stock adjustment view, and inventory row controls.
 
 - `StringingRecords/Views/ContentView.swift`
   - Stringing records page.
@@ -189,10 +182,9 @@ After changing mock data, rebuild and run the app in Xcode.
 
 Planned next steps:
 
-- Add real persistent storage for products, inventory, purchase orders, sales orders, and cashflow.
-- Add forms for purchase入库, sales出库, stock adjustment, receive payment, and make payment.
+- Add persistent editing for purchase orders, sales orders, and cashflow.
+- Add forms for purchase入库, sales出库, receive payment, and make payment.
 - Connect sales and purchase records to inventory movements automatically.
-- Allow low-stock thresholds to be edited inside the app.
 - Add backup and restore for all business data, not only stringing records.
 
 ## Build Cache
