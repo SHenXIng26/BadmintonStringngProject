@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 struct StringingRecordsView: View {
     @EnvironmentObject private var store: RecordStore
+    @EnvironmentObject private var businessStore: BusinessStore
 
     @State private var searchText = ""
     @State private var workFilter: WorkStatus?
@@ -46,9 +47,15 @@ struct StringingRecordsView: View {
                     hasAnyRecords: store.totalCount > 0,
                     onEdit: { record in editorRoute = .edit(record) },
                     onDelete: { record in store.deleteRecord(id: record.id) },
-                    onToggleWork: { record in store.toggleWorkStatus(for: record.id) },
-                    onTogglePayment: { record in store.togglePaymentStatus(for: record.id) },
-                    onTogglePickup: { record in store.togglePickupStatus(for: record.id) }
+                    onChangeWorkStatus: { record, status in
+                        changeWorkStatus(for: record, to: status)
+                    },
+                    onChangePaymentStatus: { record, status in
+                        store.changePaymentStatus(for: record.id, to: status)
+                    },
+                    onChangePickupStatus: { record, status in
+                        store.changePickupStatus(for: record.id, to: status)
+                    }
                 )
             }
             .padding(.horizontal, 16)
@@ -92,9 +99,11 @@ struct StringingRecordsView: View {
             case .new:
                 RecordFormView(record: nil)
                     .environmentObject(store)
+                    .environmentObject(businessStore)
             case .edit(let record):
                 RecordFormView(record: record)
                     .environmentObject(store)
+                    .environmentObject(businessStore)
             }
         }
         .fileExporter(
@@ -161,6 +170,14 @@ struct StringingRecordsView: View {
             let data = try Data(contentsOf: url)
             let count = try store.importBackupData(data)
             alertMessage = "Imported \(count) records."
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+    }
+
+    private func changeWorkStatus(for record: StringingRecord, to status: WorkStatus) {
+        do {
+            try store.changeWorkStatus(for: record.id, to: status, businessStore: businessStore)
         } catch {
             alertMessage = error.localizedDescription
         }
@@ -296,9 +313,9 @@ private struct RecordsSectionView: View {
     let hasAnyRecords: Bool
     let onEdit: (StringingRecord) -> Void
     let onDelete: (StringingRecord) -> Void
-    let onToggleWork: (StringingRecord) -> Void
-    let onTogglePayment: (StringingRecord) -> Void
-    let onTogglePickup: (StringingRecord) -> Void
+    let onChangeWorkStatus: (StringingRecord, WorkStatus) -> Void
+    let onChangePaymentStatus: (StringingRecord, PaymentStatus) -> Void
+    let onChangePickupStatus: (StringingRecord, PickupStatus) -> Void
 
     var body: some View {
         LazyVStack(spacing: 12) {
@@ -310,9 +327,9 @@ private struct RecordsSectionView: View {
                         record: record,
                         onEdit: { onEdit(record) },
                         onDelete: { onDelete(record) },
-                        onToggleWork: { onToggleWork(record) },
-                        onTogglePayment: { onTogglePayment(record) },
-                        onTogglePickup: { onTogglePickup(record) }
+                        onChangeWorkStatus: { status in onChangeWorkStatus(record, status) },
+                        onChangePaymentStatus: { status in onChangePaymentStatus(record, status) },
+                        onChangePickupStatus: { status in onChangePickupStatus(record, status) }
                     )
                 }
             }

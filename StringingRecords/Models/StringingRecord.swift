@@ -12,6 +12,7 @@ struct StringingRecord: Identifiable, Codable, Equatable {
     var paymentStatus: PaymentStatus
     var pickupStatus: PickupStatus
     var notes: String
+    var inventoryDeducted: Bool
     var createdAt: Date
     var updatedAt: Date
 
@@ -52,6 +53,7 @@ struct StringingRecord: Identifiable, Codable, Equatable {
         paymentStatus: PaymentStatus = .unpaid,
         pickupStatus: PickupStatus = .notPickedUp,
         notes: String = "",
+        inventoryDeducted: Bool = false,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -66,6 +68,7 @@ struct StringingRecord: Identifiable, Codable, Equatable {
         self.paymentStatus = paymentStatus
         self.pickupStatus = pickupStatus
         self.notes = notes
+        self.inventoryDeducted = inventoryDeducted
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -82,6 +85,7 @@ struct StringingRecord: Identifiable, Codable, Equatable {
         case paymentStatus
         case pickupStatus
         case notes
+        case inventoryDeducted
         case createdAt
         case updatedAt
     }
@@ -100,6 +104,7 @@ struct StringingRecord: Identifiable, Codable, Equatable {
         paymentStatus = (try? container.decode(PaymentStatus.self, forKey: .paymentStatus)) ?? .unpaid
         pickupStatus = (try? container.decode(PickupStatus.self, forKey: .pickupStatus)) ?? .notPickedUp
         notes = (try? container.decode(String.self, forKey: .notes)) ?? ""
+        inventoryDeducted = (try? container.decode(Bool.self, forKey: .inventoryDeducted)) ?? false
         createdAt = Self.decodeDate(from: container, forKey: .createdAt) ?? Date()
         updatedAt = Self.decodeDate(from: container, forKey: .updatedAt) ?? createdAt
     }
@@ -117,6 +122,7 @@ struct StringingRecord: Identifiable, Codable, Equatable {
         try container.encode(paymentStatus, forKey: .paymentStatus)
         try container.encode(pickupStatus, forKey: .pickupStatus)
         try container.encode(notes, forKey: .notes)
+        try container.encode(inventoryDeducted, forKey: .inventoryDeducted)
         try container.encode(Self.isoString(from: createdAt), forKey: .createdAt)
         try container.encode(Self.isoString(from: updatedAt), forKey: .updatedAt)
     }
@@ -190,6 +196,7 @@ struct RecordDraft: Equatable {
     var paymentStatus = PaymentStatus.unpaid
     var pickupStatus = PickupStatus.notPickedUp
     var notes = ""
+    var inventoryDeducted = false
 
     init() {}
 
@@ -204,6 +211,7 @@ struct RecordDraft: Equatable {
         paymentStatus = record.paymentStatus
         pickupStatus = record.pickupStatus
         notes = record.notes
+        inventoryDeducted = record.inventoryDeducted
     }
 
     var validationMessage: String? {
@@ -243,6 +251,7 @@ struct RecordDraft: Equatable {
             paymentStatus: paymentStatus,
             pickupStatus: pickupStatus,
             notes: notes.trimmed,
+            inventoryDeducted: inventoryDeducted,
             createdAt: createdAt,
             updatedAt: Date()
         )

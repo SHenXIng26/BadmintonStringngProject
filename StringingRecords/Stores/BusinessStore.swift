@@ -177,6 +177,46 @@ final class BusinessStore: ObservableObject {
         message = "\(record.id) 已删除。"
     }
 
+    func deductStringForCompletedRecord(_ record: StringingRecord) throws {
+        guard let index = findInventoryIndex(named: record.stringName) else {
+            throw BusinessStoreError.validation("库存里找不到 \(record.stringName)，不能标记为 Completed。")
+        }
+
+        guard snapshot.inventoryItems[index].quantity > 0 else {
+            throw BusinessStoreError.validation("\(snapshot.inventoryItems[index].name) 库存不足，不能标记为 Completed。")
+        }
+
+        snapshot.inventoryItems[index].quantity -= 1
+        sortInventory()
+        persistSnapshot()
+        message = "\(snapshot.inventoryItems[index].name) 已扣减 1 包。"
+    }
+
+    func restoreStringForPendingRecord(_ record: StringingRecord) throws {
+        if let index = findInventoryIndex(named: record.stringName) {
+            snapshot.inventoryItems[index].quantity += 1
+            sortInventory()
+            persistSnapshot()
+            message = "\(snapshot.inventoryItems[index].name) 已恢复 1 包。"
+            return
+        }
+
+        snapshot.inventoryItems.append(
+            StringInventoryItem(
+                id: UUID(),
+                name: record.stringName,
+                brand: "",
+                costPerPack: 0,
+                quantity: 1,
+                lowStockThreshold: 0,
+                note: "由穿线记录 \(record.id) 状态恢复自动创建"
+            )
+        )
+        sortInventory()
+        persistSnapshot()
+        message = "\(record.stringName) 已恢复 1 包。"
+    }
+
     func clearInventoryItems() {
         snapshot.inventoryItems = []
         persistSnapshot()

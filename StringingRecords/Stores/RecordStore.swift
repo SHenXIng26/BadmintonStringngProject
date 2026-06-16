@@ -53,6 +53,16 @@ final class RecordStore: ObservableObject {
         return record
     }
 
+    @discardableResult
+    func addRecord(from draft: RecordDraft, businessStore: BusinessStore) throws -> StringingRecord {
+        let record = draft.makeRecord(id: nextMonthlyRecordID(for: draft.receivedAt))
+        records.append(record)
+        records = Self.sorted(records)
+        persistRecords()
+        message = "Record \(record.id) saved."
+        return record
+    }
+
     func updateRecord(id: String, with draft: RecordDraft) {
         guard let index = records.firstIndex(where: { $0.id == id }) else {
             return
@@ -60,6 +70,28 @@ final class RecordStore: ObservableObject {
 
         let createdAt = records[index].createdAt
         records[index] = draft.makeRecord(id: id, createdAt: createdAt)
+        records = Self.sorted(records)
+        persistRecords()
+        message = "Record \(id) updated."
+    }
+
+    func updateRecord(id: String, with draft: RecordDraft, businessStore: BusinessStore) throws {
+        guard let index = records.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+
+        let existingRecord = records[index]
+        let createdAt = existingRecord.createdAt
+        var updatedRecord = draft.makeRecord(id: id, createdAt: createdAt)
+        updatedRecord.inventoryDeducted = existingRecord.inventoryDeducted
+
+        try applyInventoryTransition(
+            from: existingRecord,
+            to: &updatedRecord,
+            businessStore: businessStore
+        )
+
+        records[index] = updatedRecord
         records = Self.sorted(records)
         persistRecords()
         message = "Record \(id) updated."
@@ -77,15 +109,53 @@ final class RecordStore: ObservableObject {
         }
     }
 
+    func changeWorkStatus(for id: String, to newStatus: WorkStatus, businessStore: BusinessStore) throws {
+        guard let index = records.firstIndex(where: { $0.id == id }) else {
+            return
+        }
+
+        let oldRecord = records[index]
+        guard oldRecord.workStatus != newStatus else {
+            return
+        }
+
+        var newRecord = oldRecord
+        newRecord.workStatus = newStatus
+        newRecord.updatedAt = Date()
+
+        try applyInventoryTransition(
+            from: oldRecord,
+            to: &newRecord,
+            businessStore: businessStore
+        )
+
+        records[index] = newRecord
+        records = Self.sorted(records)
+        persistRecords()
+        message = "Record \(id) updated."
+    }
+
     func togglePaymentStatus(for id: String) {
         updateRecord(id: id) { record in
             record.paymentStatus = record.paymentStatus == .paid ? .unpaid : .paid
         }
     }
 
+    func changePaymentStatus(for id: String, to newStatus: PaymentStatus) {
+        updateRecord(id: id) { record in
+            record.paymentStatus = newStatus
+        }
+    }
+
     func togglePickupStatus(for id: String) {
         updateRecord(id: id) { record in
             record.pickupStatus = record.pickupStatus == .pickedUp ? .notPickedUp : .pickedUp
+        }
+    }
+
+    func changePickupStatus(for id: String, to newStatus: PickupStatus) {
+        updateRecord(id: id) { record in
+            record.pickupStatus = newStatus
         }
     }
 
@@ -171,6 +241,27 @@ final class RecordStore: ObservableObject {
         records[index] = record
         records = Self.sorted(records)
         persistRecords()
+    }
+
+    private func applyInventoryTransition(
+        from oldRecord: StringingRecord,
+        to newRecord: inout StringingRecord,
+        businessStore: BusinessStore
+    ) throws {
+        let isCompleting = oldRecord.workStatus != .completed && newRecord.workStatus == .completed
+        let isRevertingFromCompleted = oldRecord.workStatus == .completed && newRecord.workStatus != .completed
+
+        if isCompleting && !oldRecord.inventoryDeducted {
+            try businessStore.deductStringForCompletedRecord(newRecord)
+            newRecord.inventoryDeducted = true
+        } else if oldRecord.inventoryDeducted {
+            newRecord.inventoryDeducted = true
+        }
+
+        if isRevertingFromCompleted && oldRecord.inventoryDeducted {
+            try businessStore.restoreStringForPendingRecord(oldRecord)
+            newRecord.inventoryDeducted = false
+        }
     }
 
     private func loadRecords() {
