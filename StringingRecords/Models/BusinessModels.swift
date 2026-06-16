@@ -4,11 +4,8 @@ import SwiftUI
 enum BusinessModule: String, CaseIterable, Identifiable, Hashable {
     case dashboard
     case stringingRecords
-    case purchase
-    case sales
     case inventory
-    case cashflow
-    case information
+    case stockIn
     case maintenance
 
     var id: String { rawValue }
@@ -16,19 +13,13 @@ enum BusinessModule: String, CaseIterable, Identifiable, Hashable {
     var title: String {
         switch self {
         case .dashboard:
-            return "经营驾驶舱"
+            return "经营概览"
         case .stringingRecords:
             return "穿线记录工具"
-        case .purchase:
-            return "进货管理"
-        case .sales:
-            return "销售管理"
         case .inventory:
-            return "库存管理"
-        case .cashflow:
-            return "钱流管理"
-        case .information:
-            return "信息中心"
+            return "线材库存"
+        case .stockIn:
+            return "入库记录"
         case .maintenance:
             return "系统维护"
         }
@@ -37,40 +28,28 @@ enum BusinessModule: String, CaseIterable, Identifiable, Hashable {
     var subtitle: String {
         switch self {
         case .dashboard:
-            return "快速查看销售、库存、应收应付和经营动向。"
+            return "查看本月收入、线材成本、入库支出和盈亏。"
         case .stringingRecords:
             return "记录球拍穿线、付款、取拍和导入导出。"
-        case .purchase:
-            return "管理供应商采购、入库和应付款。"
-        case .sales:
-            return "管理穿线服务、商品售卖和销售出库。"
         case .inventory:
-            return "查看库存数量、低库存预警和库存流水。"
-        case .cashflow:
-            return "跟踪收款、付款、应收和应付。"
-        case .information:
-            return "维护商品、供应商、客户等基础信息。"
+            return "维护每种线材的成本、库存和低库存提醒。"
+        case .stockIn:
+            return "记录买线和入库，自动增加线材库存。"
         case .maintenance:
-            return "处理数据备份、系统设置和运营参数。"
+            return "清除库存或入库记录，穿线记录单独保留。"
         }
     }
 
     var systemImage: String {
         switch self {
         case .dashboard:
-            return "gauge.with.dots.needle.bottom.50percent"
+            return "chart.line.uptrend.xyaxis"
         case .stringingRecords:
             return "list.clipboard"
-        case .purchase:
-            return "tray.and.arrow.down"
-        case .sales:
-            return "cart"
         case .inventory:
-            return "shippingbox"
-        case .cashflow:
-            return "creditcard"
-        case .information:
-            return "info.circle"
+            return "tennis.racket"
+        case .stockIn:
+            return "tray.and.arrow.down"
         case .maintenance:
             return "gearshape"
         }
@@ -78,90 +57,51 @@ enum BusinessModule: String, CaseIterable, Identifiable, Hashable {
 }
 
 enum QuickAction: String, CaseIterable, Identifiable {
-    case salesOut
-    case purchaseIn
-    case inventoryStatus
-    case lowStock
-    case receivePayment
-    case makePayment
+    case stringingRecords
+    case inventory
+    case stockIn
+    case maintenance
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .salesOut:
-            return "销售出库"
-        case .purchaseIn:
-            return "采购入库"
-        case .inventoryStatus:
-            return "库存状况"
-        case .lowStock:
-            return "低库存预警"
-        case .receivePayment:
-            return "收款登记"
-        case .makePayment:
-            return "付款登记"
+        case .stringingRecords:
+            return "穿线记录"
+        case .inventory:
+            return "线材库存"
+        case .stockIn:
+            return "新增入库"
+        case .maintenance:
+            return "系统维护"
         }
     }
 
     var systemImage: String {
         switch self {
-        case .salesOut:
-            return "cart.badge.minus"
-        case .purchaseIn:
-            return "tray.and.arrow.down.fill"
-        case .inventoryStatus:
+        case .stringingRecords:
+            return "plus.rectangle.on.folder"
+        case .inventory:
             return "shippingbox.fill"
-        case .lowStock:
-            return "exclamationmark.triangle.fill"
-        case .receivePayment:
-            return "banknote.fill"
-        case .makePayment:
-            return "creditcard.fill"
+        case .stockIn:
+            return "tray.and.arrow.down.fill"
+        case .maintenance:
+            return "gearshape.fill"
         }
     }
 
     var targetModule: BusinessModule {
         switch self {
-        case .salesOut:
-            return .sales
-        case .purchaseIn:
-            return .purchase
-        case .inventoryStatus, .lowStock:
+        case .stringingRecords:
+            return .stringingRecords
+        case .inventory:
             return .inventory
-        case .receivePayment, .makePayment:
-            return .cashflow
+        case .stockIn:
+            return .stockIn
+        case .maintenance:
+            return .maintenance
         }
     }
-}
-
-enum ProductCategory: String, CaseIterable, Codable, Identifiable {
-    case string = "羽毛球线"
-    case racket = "羽毛球拍"
-    case service = "穿线服务"
-    case accessory = "配件"
-
-    var id: String { rawValue }
-}
-
-enum BusinessOrderStatus: String, Codable {
-    case draft = "草稿"
-    case completed = "已完成"
-    case unpaid = "未结清"
-    case paid = "已结清"
-}
-
-enum InventoryMovementType: String, Codable {
-    case purchaseIn = "采购入库"
-    case salesOut = "销售出库"
-    case adjustment = "库存调整"
-}
-
-enum MoneyDirection: String, CaseIterable, Codable, Identifiable {
-    case incoming = "收款"
-    case outgoing = "付款"
-
-    var id: String { rawValue }
 }
 
 struct DashboardMetric: Identifiable {
@@ -174,343 +114,193 @@ struct DashboardMetric: Identifiable {
 }
 
 struct BusinessSnapshot: Codable {
-    var products: [BusinessProduct]
-    var inventoryItems: [InventoryItem]
-    var salesOrders: [SalesOrder]
-    var purchaseOrders: [PurchaseOrder]
-    var inventoryMovements: [InventoryMovement]
-    var moneyRecords: [MoneyRecord]
-    var notices: [InformationNotice]
+    var inventoryItems: [StringInventoryItem]
+    var stockInRecords: [StringStockInRecord]
 }
 
-struct BusinessProduct: Codable, Identifiable, Hashable {
-    var id: String { code }
-    let code: String
-    let name: String
-    let category: ProductCategory
-    let brand: String
-    let salePrice: Double
-    let costPrice: Double
-}
-
-struct InventoryItem: Codable, Identifiable, Hashable {
-    var id: String { product.code }
-    let product: BusinessProduct
+struct StringInventoryItem: Codable, Identifiable, Hashable {
+    let id: UUID
+    var name: String
+    var brand: String
+    var costPerPack: Double
     var quantity: Int
     var lowStockThreshold: Int
-    var location: String
+    var note: String
 
     var isLowStock: Bool {
         quantity <= lowStockThreshold
     }
+
+    var normalizedName: String {
+        name.normalizedInventoryKey
+    }
 }
 
-struct SalesOrder: Codable, Identifiable, Hashable {
+struct StringStockInRecord: Codable, Identifiable, Hashable {
     let id: String
+    var date: Date
+    var stringName: String
+    var brand: String
+    var quantity: Int
+    var costPerPack: Double
+    var note: String
+
+    var totalCost: Double {
+        Double(quantity) * costPerPack
+    }
+
+    var normalizedStringName: String {
+        stringName.normalizedInventoryKey
+    }
+}
+
+struct ProfitSummary {
+    let monthTitle: String
+    let totalRevenue: Double
+    let stringUsageCost: Double
+    let grossProfit: Double
+    let stockInExpense: Double
+    let netCashResult: Double
+    let monthlyRecordCount: Int
+    let completedRecordCount: Int
+    let unmatchedCostCount: Int
+    let lowStockCount: Int
+
+    var isProfitable: Bool {
+        netCashResult >= 0
+    }
+}
+
+struct ProfitRecordRow: Identifiable, Hashable {
+    let id: String
+    let recordID: String
     let date: Date
     let customerName: String
-    let items: [OrderLineItem]
-    let paidAmount: Double
-    let status: BusinessOrderStatus
-
-    var totalAmount: Double {
-        items.reduce(0) { $0 + $1.lineTotal }
-    }
-
-    var receivableAmount: Double {
-        max(totalAmount - paidAmount, 0)
-    }
+    let racketModel: String
+    let stringName: String
+    let revenue: Double
+    let stringCost: Double
+    let grossProfit: Double
+    let hasMatchedCost: Bool
 }
 
-struct PurchaseOrder: Codable, Identifiable, Hashable {
-    let id: String
-    let date: Date
-    let supplierName: String
-    let items: [OrderLineItem]
-    let paidAmount: Double
-    let status: BusinessOrderStatus
-
-    var totalAmount: Double {
-        items.reduce(0) { $0 + $1.lineTotal }
-    }
-
-    var payableAmount: Double {
-        max(totalAmount - paidAmount, 0)
-    }
-}
-
-struct OrderLineItem: Codable, Identifiable, Hashable {
-    var id = UUID()
-    let productCode: String
-    let productName: String
-    let quantity: Int
-    let unitPrice: Double
-
-    var lineTotal: Double {
-        Double(quantity) * unitPrice
-    }
-}
-
-struct InventoryMovement: Codable, Identifiable, Hashable {
-    let id: String
-    let date: Date
-    let type: InventoryMovementType
-    let productCode: String
-    let productName: String
-    let quantityChange: Int
-    let reference: String
-}
-
-struct MoneyRecord: Codable, Identifiable, Hashable {
-    let id: String
-    let date: Date
-    let direction: MoneyDirection
-    let counterparty: String
-    let amount: Double
-    let relatedOrderID: String
-    let note: String
-}
-
-struct HotProduct: Identifiable, Hashable {
-    var id: String { productCode }
-    let rank: Int
-    let productCode: String
-    let productName: String
-    let quantity: Int
-    let salesAmount: Double
-}
-
-struct InformationNotice: Codable, Identifiable, Hashable {
-    let id: String
-    let title: String
-    let detail: String
-}
-
-struct InventoryItemDraft: Equatable {
-    var code = ""
+struct StringInventoryItemDraft: Equatable {
     var name = ""
-    var category = ProductCategory.string
     var brand = ""
-    var salePrice = 0.0
-    var costPrice = 0.0
+    var costPerPack = 0.0
     var quantity = 0
     var lowStockThreshold = 0
-    var location = ""
+    var note = ""
 
     init() {}
 
-    init(item: InventoryItem) {
-        code = item.product.code
-        name = item.product.name
-        category = item.product.category
-        brand = item.product.brand
-        salePrice = item.product.salePrice
-        costPrice = item.product.costPrice
+    init(item: StringInventoryItem) {
+        name = item.name
+        brand = item.brand
+        costPerPack = item.costPerPack
         quantity = item.quantity
         lowStockThreshold = item.lowStockThreshold
-        location = item.location
+        note = item.note
     }
 
-    var normalizedCode: String {
-        code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    var normalizedName: String {
+        name.normalizedInventoryKey
     }
 
     var validationMessage: String? {
-        if normalizedCode.isEmpty {
-            return "Product code is required."
+        if normalizedName.isEmpty {
+            return "请输入线材名称。"
         }
 
-        if name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Product name is required."
-        }
-
-        if salePrice < 0 || costPrice < 0 {
-            return "Prices cannot be negative."
+        if costPerPack < 0 {
+            return "每包成本不能为负数。"
         }
 
         if quantity < 0 {
-            return "Quantity cannot be negative."
+            return "库存数量不能为负数。"
         }
 
         if lowStockThreshold < 0 {
-            return "Low stock threshold cannot be negative."
+            return "低库存提醒数量不能为负数。"
         }
 
         return nil
     }
 
-    func makeProduct() -> BusinessProduct {
-        BusinessProduct(
-            code: normalizedCode,
-            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
-            category: category,
-            brand: brand.trimmingCharacters(in: .whitespacesAndNewlines),
-            salePrice: salePrice,
-            costPrice: costPrice
-        )
-    }
-
-    func makeInventoryItem() -> InventoryItem {
-        InventoryItem(
-            product: makeProduct(),
+    func makeItem(id: UUID = UUID()) -> StringInventoryItem {
+        StringInventoryItem(
+            id: id,
+            name: name.businessTrimmed,
+            brand: brand.businessTrimmed,
+            costPerPack: costPerPack,
             quantity: quantity,
             lowStockThreshold: lowStockThreshold,
-            location: location.trimmingCharacters(in: .whitespacesAndNewlines)
+            note: note.businessTrimmed
         )
     }
 }
 
-struct OrderLineItemDraft: Equatable {
-    var productCode = ""
-    var productName = ""
+struct StringStockInDraft: Equatable {
+    var date = Date()
+    var stringName = ""
+    var brand = ""
     var quantity = 1
-    var unitPrice = 0.0
+    var costPerPack = 0.0
+    var note = ""
 
-    var normalizedProductCode: String {
-        productCode.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+    init() {}
+
+    init(item: StringInventoryItem) {
+        stringName = item.name
+        brand = item.brand
+        costPerPack = item.costPerPack
+    }
+
+    var normalizedStringName: String {
+        stringName.normalizedInventoryKey
+    }
+
+    var totalCost: Double {
+        Double(quantity) * costPerPack
     }
 
     var validationMessage: String? {
-        if normalizedProductCode.isEmpty {
-            return "Product code is required."
-        }
-
-        if productName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Product name is required."
+        if normalizedStringName.isEmpty {
+            return "请输入线材名称。"
         }
 
         if quantity <= 0 {
-            return "Quantity must be greater than zero."
+            return "入库数量必须大于 0。"
         }
 
-        if unitPrice < 0 {
-            return "Unit price cannot be negative."
+        if costPerPack < 0 {
+            return "每包成本不能为负数。"
         }
 
         return nil
     }
 
-    func makeLineItem() -> OrderLineItem {
-        OrderLineItem(
-            productCode: normalizedProductCode,
-            productName: productName.trimmingCharacters(in: .whitespacesAndNewlines),
+    func makeRecord(id: String) -> StringStockInRecord {
+        StringStockInRecord(
+            id: id,
+            date: date,
+            stringName: stringName.businessTrimmed,
+            brand: brand.businessTrimmed,
             quantity: quantity,
-            unitPrice: unitPrice
+            costPerPack: costPerPack,
+            note: note.businessTrimmed
         )
     }
 }
 
-struct PurchaseOrderDraft: Equatable {
-    var date = Date()
-    var supplierName = ""
-    var item = OrderLineItemDraft()
-    var paidAmount = 0.0
-
-    var validationMessage: String? {
-        if supplierName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Supplier name is required."
-        }
-
-        if let itemMessage = item.validationMessage {
-            return itemMessage
-        }
-
-        if paidAmount < 0 {
-            return "Paid amount cannot be negative."
-        }
-
-        if paidAmount > item.makeLineItem().lineTotal {
-            return "Paid amount cannot be greater than order total."
-        }
-
-        return nil
+extension String {
+    var businessTrimmed: String {
+        trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func makeOrder(id: String) -> PurchaseOrder {
-        let lineItem = item.makeLineItem()
-        let status: BusinessOrderStatus = paidAmount >= lineItem.lineTotal ? .paid : .unpaid
-
-        return PurchaseOrder(
-            id: id,
-            date: date,
-            supplierName: supplierName.trimmingCharacters(in: .whitespacesAndNewlines),
-            items: [lineItem],
-            paidAmount: paidAmount,
-            status: status
-        )
-    }
-}
-
-struct SalesOrderDraft: Equatable {
-    var date = Date()
-    var customerName = ""
-    var item = OrderLineItemDraft()
-    var paidAmount = 0.0
-
-    var validationMessage: String? {
-        if customerName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Customer name is required."
-        }
-
-        if let itemMessage = item.validationMessage {
-            return itemMessage
-        }
-
-        if paidAmount < 0 {
-            return "Paid amount cannot be negative."
-        }
-
-        if paidAmount > item.makeLineItem().lineTotal {
-            return "Paid amount cannot be greater than order total."
-        }
-
-        return nil
-    }
-
-    func makeOrder(id: String) -> SalesOrder {
-        let lineItem = item.makeLineItem()
-        let status: BusinessOrderStatus = paidAmount >= lineItem.lineTotal ? .paid : .unpaid
-
-        return SalesOrder(
-            id: id,
-            date: date,
-            customerName: customerName.trimmingCharacters(in: .whitespacesAndNewlines),
-            items: [lineItem],
-            paidAmount: paidAmount,
-            status: status
-        )
-    }
-}
-
-struct MoneyRecordDraft: Equatable {
-    var date = Date()
-    var direction = MoneyDirection.incoming
-    var counterparty = ""
-    var amount = 0.0
-    var relatedOrderID = ""
-    var note = ""
-
-    var validationMessage: String? {
-        if counterparty.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "Counterparty is required."
-        }
-
-        if amount <= 0 {
-            return "Amount must be greater than zero."
-        }
-
-        return nil
-    }
-
-    func makeRecord(id: String) -> MoneyRecord {
-        MoneyRecord(
-            id: id,
-            date: date,
-            direction: direction,
-            counterparty: counterparty.trimmingCharacters(in: .whitespacesAndNewlines),
-            amount: amount,
-            relatedOrderID: relatedOrderID.trimmingCharacters(in: .whitespacesAndNewlines),
-            note: note.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
+    var normalizedInventoryKey: String {
+        trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .lowercased()
     }
 }

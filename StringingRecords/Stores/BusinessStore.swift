@@ -32,375 +32,167 @@ final class BusinessStore: ObservableObject {
         }
     }
 
-    var dashboardMetrics: [DashboardMetric] {
-        [
-            DashboardMetric(title: "今日销售额", value: moneyText(todaySalesAmount), detail: "今日已完成销售", systemImage: "dollarsign.circle", color: .green),
-            DashboardMetric(title: "本月销售额", value: moneyText(monthSalesAmount), detail: "本月累计销售", systemImage: "chart.line.uptrend.xyaxis", color: .blue),
-            DashboardMetric(title: "今日销售单数", value: "\(todaySalesCount)", detail: "今日销售出库单", systemImage: "doc.text", color: .orange),
-            DashboardMetric(title: "本月销售单数", value: "\(monthSalesCount)", detail: "本月销售出库单", systemImage: "calendar", color: .purple),
-            DashboardMetric(title: "应收合计", value: moneyText(receivableTotal), detail: "未完成收款金额", systemImage: "tray", color: .red),
-            DashboardMetric(title: "应付合计", value: moneyText(payableTotal), detail: "未完成付款金额", systemImage: "creditcard", color: .pink),
-            DashboardMetric(title: "低库存预警数", value: "\(lowStockItems.count)", detail: "需要关注的库存", systemImage: "exclamationmark.triangle", color: .yellow),
-            DashboardMetric(title: "今日库存流水数", value: "\(todayMovementCount)", detail: "今日库存变动", systemImage: "arrow.left.arrow.right", color: .teal)
+    var lowStockItems: [StringInventoryItem] {
+        snapshot.inventoryItems
+            .filter(\.isLowStock)
+            .sorted { first, second in
+                if first.quantity != second.quantity {
+                    return first.quantity < second.quantity
+                }
+
+                return first.name < second.name
+            }
+    }
+
+    var stockInRecordsThisMonth: [StringStockInRecord] {
+        snapshot.stockInRecords
+            .filter { isThisMonth($0.date) }
+            .sorted { $0.date > $1.date }
+    }
+
+    var stockInExpenseThisMonth: Double {
+        stockInRecordsThisMonth.reduce(0) { $0 + $1.totalCost }
+    }
+
+    var recentStockInRecords: [StringStockInRecord] {
+        snapshot.stockInRecords.sorted { $0.date > $1.date }
+    }
+
+    func dashboardMetrics(for records: [StringingRecord]) -> [DashboardMetric] {
+        let summary = profitSummary(for: records)
+
+        return [
+            DashboardMetric(title: "本月总收入", value: moneyText(summary.totalRevenue), detail: "来自穿线记录价格", systemImage: "dollarsign.circle", color: .green),
+            DashboardMetric(title: "本月线材成本", value: moneyText(summary.stringUsageCost), detail: "按 stringName 匹配库存成本", systemImage: "scissors", color: .orange),
+            DashboardMetric(title: "本月毛利润", value: moneyText(summary.grossProfit), detail: "收入 - 线材成本", systemImage: "chart.line.uptrend.xyaxis", color: .blue),
+            DashboardMetric(title: "本月进货支出", value: moneyText(summary.stockInExpense), detail: "本月入库记录合计", systemImage: "tray.and.arrow.down", color: .purple),
+            DashboardMetric(title: summary.isProfitable ? "本月净利润" : "本月亏损", value: moneyText(summary.netCashResult), detail: "毛利润 - 进货支出", systemImage: summary.isProfitable ? "checkmark.seal" : "exclamationmark.triangle", color: summary.isProfitable ? .green : .red),
+            DashboardMetric(title: "本月穿线单数", value: "\(summary.completedRecordCount)", detail: "本月记录 \(summary.monthlyRecordCount) 单", systemImage: "list.clipboard", color: .teal),
+            DashboardMetric(title: "低库存提醒", value: "\(summary.lowStockCount)", detail: "低于或等于提醒数量", systemImage: "shippingbox", color: .yellow),
+            DashboardMetric(title: "未匹配成本", value: "\(summary.unmatchedCostCount)", detail: "库存中找不到同名线材", systemImage: "questionmark.circle", color: .gray)
         ]
     }
 
-    var todaySalesAmount: Double {
-        salesOrdersToday.reduce(0) { $0 + $1.totalAmount }
+    func profitSummary(for records: [StringingRecord]) -> ProfitSummary {
+        let monthlyRecords = records.filter { isThisMonth($0.receivedAt) }
+        let rows = monthlyRecords.map(makeProfitRecordRow)
+        let totalRevenue = rows.reduce(0) { $0 + $1.revenue }
+        let stringUsageCost = rows.reduce(0) { $0 + $1.stringCost }
+        let grossProfit = totalRevenue - stringUsageCost
+        let stockInExpense = stockInExpenseThisMonth
+
+        return ProfitSummary(
+            monthTitle: Self.monthTitleFormatter.string(from: refreshedAt),
+            totalRevenue: totalRevenue,
+            stringUsageCost: stringUsageCost,
+            grossProfit: grossProfit,
+            stockInExpense: stockInExpense,
+            netCashResult: grossProfit - stockInExpense,
+            monthlyRecordCount: monthlyRecords.count,
+            completedRecordCount: monthlyRecords.filter { $0.workStatus == .completed }.count,
+            unmatchedCostCount: rows.filter { !$0.hasMatchedCost }.count,
+            lowStockCount: lowStockItems.count
+        )
     }
 
-    var monthSalesAmount: Double {
-        salesOrdersThisMonth.reduce(0) { $0 + $1.totalAmount }
-    }
-
-    var todaySalesCount: Int {
-        salesOrdersToday.count
-    }
-
-    var monthSalesCount: Int {
-        salesOrdersThisMonth.count
-    }
-
-    var receivableTotal: Double {
-        snapshot.salesOrders.reduce(0) { $0 + $1.receivableAmount }
-    }
-
-    var payableTotal: Double {
-        snapshot.purchaseOrders.reduce(0) { $0 + $1.payableAmount }
-    }
-
-    var lowStockItems: [InventoryItem] {
-        snapshot.inventoryItems.filter(\.isLowStock)
-    }
-
-    var todayMovementCount: Int {
-        snapshot.inventoryMovements.filter { isToday($0.date) }.count
-    }
-
-    var hotProductsThisMonth: [HotProduct] {
-        let monthlyOrders = salesOrdersThisMonth
-        var grouped: [String: (name: String, quantity: Int, amount: Double)] = [:]
-
-        for order in monthlyOrders {
-            for item in order.items {
-                let current = grouped[item.productCode] ?? (item.productName, 0, 0)
-                grouped[item.productCode] = (
-                    item.productName,
-                    current.quantity + item.quantity,
-                    current.amount + item.lineTotal
-                )
-            }
-        }
-
-        return grouped
+    func profitRows(for records: [StringingRecord]) -> [ProfitRecordRow] {
+        records
+            .filter { isThisMonth($0.receivedAt) }
+            .map(makeProfitRecordRow)
             .sorted { first, second in
-                if first.value.quantity != second.value.quantity {
-                    return first.value.quantity > second.value.quantity
+                if first.date != second.date {
+                    return first.date > second.date
                 }
 
-                return first.value.amount > second.value.amount
-            }
-            .prefix(5)
-            .enumerated()
-            .map { index, entry in
-                HotProduct(
-                    rank: index + 1,
-                    productCode: entry.key,
-                    productName: entry.value.name,
-                    quantity: entry.value.quantity,
-                    salesAmount: entry.value.amount
-                )
+                return first.recordID > second.recordID
             }
     }
 
-    var salesOrdersToday: [SalesOrder] {
-        snapshot.salesOrders.filter { isToday($0.date) }
-    }
-
-    var salesOrdersThisMonth: [SalesOrder] {
-        snapshot.salesOrders.filter { isThisMonth($0.date) }
-    }
-
-    var purchaseOrdersThisMonth: [PurchaseOrder] {
-        snapshot.purchaseOrders.filter { isThisMonth($0.date) }
-    }
-
-    var recentMovements: [InventoryMovement] {
-        snapshot.inventoryMovements.sorted { $0.date > $1.date }
-    }
-
-    var recentMoneyRecords: [MoneyRecord] {
-        snapshot.moneyRecords.sorted { $0.date > $1.date }
-    }
-
-    func addPurchaseOrder(from draft: PurchaseOrderDraft) throws {
+    func addInventoryItem(from draft: StringInventoryItemDraft) throws {
         if let validationMessage = draft.validationMessage {
             throw BusinessStoreError.validation(validationMessage)
         }
 
-        let order = draft.makeOrder(id: nextPurchaseOrderID())
-        snapshot.purchaseOrders.append(order)
-
-        for item in order.items {
-            applyInventoryChange(
-                productCode: item.productCode,
-                productName: item.productName,
-                quantityChange: item.quantity,
-                unitCost: item.unitPrice,
-                reference: order.id,
-                type: .purchaseIn,
-                createMissingItem: true
-            )
+        guard findInventoryIndex(named: draft.name) == nil else {
+            throw BusinessStoreError.validation("库存里已经有同名线材。")
         }
 
-        if order.paidAmount > 0 {
-            snapshot.moneyRecords.append(
-                MoneyRecord(
-                    id: nextMoneyRecordID(),
-                    date: order.date,
-                    direction: .outgoing,
-                    counterparty: order.supplierName,
-                    amount: order.paidAmount,
-                    relatedOrderID: order.id,
-                    note: "采购付款"
-                )
-            )
-        }
-
-        sortBusinessData()
-        persistSnapshot()
-        message = "\(order.id) 已保存。"
-    }
-
-    func deletePurchaseOrder(id: String) throws {
-        guard let order = snapshot.purchaseOrders.first(where: { $0.id == id }) else {
-            throw BusinessStoreError.validation("Purchase order was not found.")
-        }
-
-        for item in order.items {
-            try ensureInventoryCanDecrease(productCode: item.productCode, quantity: item.quantity)
-        }
-
-        for item in order.items {
-            applyInventoryChange(
-                productCode: item.productCode,
-                productName: item.productName,
-                quantityChange: -item.quantity,
-                unitCost: item.unitPrice,
-                reference: "删除 \(order.id)",
-                type: .adjustment,
-                createMissingItem: false
-            )
-        }
-
-        snapshot.purchaseOrders.removeAll { $0.id == id }
-        snapshot.moneyRecords.removeAll { $0.relatedOrderID == id }
-        sortBusinessData()
-        persistSnapshot()
-        message = "\(id) 已删除。"
-    }
-
-    func addSalesOrder(from draft: SalesOrderDraft) throws {
-        if let validationMessage = draft.validationMessage {
-            throw BusinessStoreError.validation(validationMessage)
-        }
-
-        let order = draft.makeOrder(id: nextSalesOrderID())
-
-        for item in order.items {
-            try ensureInventoryCanDecrease(productCode: item.productCode, quantity: item.quantity)
-        }
-
-        snapshot.salesOrders.append(order)
-
-        for item in order.items {
-            applyInventoryChange(
-                productCode: item.productCode,
-                productName: item.productName,
-                quantityChange: -item.quantity,
-                unitCost: item.unitPrice,
-                reference: order.id,
-                type: .salesOut,
-                createMissingItem: false
-            )
-        }
-
-        if order.paidAmount > 0 {
-            snapshot.moneyRecords.append(
-                MoneyRecord(
-                    id: nextMoneyRecordID(),
-                    date: order.date,
-                    direction: .incoming,
-                    counterparty: order.customerName,
-                    amount: order.paidAmount,
-                    relatedOrderID: order.id,
-                    note: "销售收款"
-                )
-            )
-        }
-
-        sortBusinessData()
-        persistSnapshot()
-        message = "\(order.id) 已保存。"
-    }
-
-    func deleteSalesOrder(id: String) throws {
-        guard let order = snapshot.salesOrders.first(where: { $0.id == id }) else {
-            throw BusinessStoreError.validation("Sales order was not found.")
-        }
-
-        for item in order.items {
-            applyInventoryChange(
-                productCode: item.productCode,
-                productName: item.productName,
-                quantityChange: item.quantity,
-                unitCost: item.unitPrice,
-                reference: "删除 \(order.id)",
-                type: .adjustment,
-                createMissingItem: true
-            )
-        }
-
-        snapshot.salesOrders.removeAll { $0.id == id }
-        snapshot.moneyRecords.removeAll { $0.relatedOrderID == id }
-        sortBusinessData()
-        persistSnapshot()
-        message = "\(id) 已删除。"
-    }
-
-    func addMoneyRecord(from draft: MoneyRecordDraft) throws {
-        if let validationMessage = draft.validationMessage {
-            throw BusinessStoreError.validation(validationMessage)
-        }
-
-        let record = draft.makeRecord(id: nextMoneyRecordID())
-        try applyPaymentChange(for: record, multiplier: 1)
-
-        snapshot.moneyRecords.append(record)
-        sortBusinessData()
-        persistSnapshot()
-        message = "\(record.id) 已保存。"
-    }
-
-    func deleteMoneyRecord(id: String) throws {
-        guard let record = snapshot.moneyRecords.first(where: { $0.id == id }) else {
-            throw BusinessStoreError.validation("Money record was not found.")
-        }
-
-        try applyPaymentChange(for: record, multiplier: -1)
-        snapshot.moneyRecords.removeAll { $0.id == id }
-        sortBusinessData()
-        persistSnapshot()
-        message = "\(id) 已删除。"
-    }
-
-    func canAddInventoryItem(code: String) -> Bool {
-        let normalizedCode = code.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        return !snapshot.inventoryItems.contains { $0.product.code == normalizedCode }
-    }
-
-    func addInventoryItem(from draft: InventoryItemDraft) throws {
-        if let validationMessage = draft.validationMessage {
-            throw BusinessStoreError.validation(validationMessage)
-        }
-
-        guard canAddInventoryItem(code: draft.code) else {
-            throw BusinessStoreError.validation("A product with this code already exists.")
-        }
-
-        let item = draft.makeInventoryItem()
-        upsertProduct(item.product)
-        snapshot.inventoryItems.append(item)
-        appendInventoryMovement(
-            type: .adjustment,
-            product: item.product,
-            quantityChange: item.quantity,
-            reference: "初始库存"
-        )
+        snapshot.inventoryItems.append(draft.makeItem())
         sortInventory()
         persistSnapshot()
-        message = "\(item.product.name) 已保存。"
+        message = "\(draft.name.businessTrimmed) 已加入库存。"
     }
 
-    func updateInventoryItem(productCode: String, with draft: InventoryItemDraft) throws {
+    func updateInventoryItem(id: UUID, with draft: StringInventoryItemDraft) throws {
         if let validationMessage = draft.validationMessage {
             throw BusinessStoreError.validation(validationMessage)
         }
 
-        guard let index = snapshot.inventoryItems.firstIndex(where: { $0.product.code == productCode }) else {
-            throw BusinessStoreError.validation("Inventory item was not found.")
+        guard let index = snapshot.inventoryItems.firstIndex(where: { $0.id == id }) else {
+            throw BusinessStoreError.validation("没有找到这条库存。")
         }
 
-        var fixedDraft = draft
-        fixedDraft.code = productCode
-
-        let previousQuantity = snapshot.inventoryItems[index].quantity
-        let item = fixedDraft.makeInventoryItem()
-        upsertProduct(item.product)
-        snapshot.inventoryItems[index] = item
-
-        let quantityChange = item.quantity - previousQuantity
-        if quantityChange != 0 {
-            appendInventoryMovement(
-                type: .adjustment,
-                product: item.product,
-                quantityChange: quantityChange,
-                reference: "手动编辑"
-            )
+        if let duplicateIndex = findInventoryIndex(named: draft.name), duplicateIndex != index {
+            throw BusinessStoreError.validation("库存里已经有同名线材。")
         }
 
+        snapshot.inventoryItems[index] = draft.makeItem(id: id)
         sortInventory()
         persistSnapshot()
-        message = "\(item.product.name) 已更新。"
+        message = "\(draft.name.businessTrimmed) 已更新。"
     }
 
-    func adjustInventory(productCode: String, quantityChange: Int, note: String) throws {
-        guard quantityChange != 0 else {
-            throw BusinessStoreError.validation("Quantity change cannot be zero.")
+    func deleteInventoryItem(id: UUID) throws {
+        guard let item = snapshot.inventoryItems.first(where: { $0.id == id }) else {
+            throw BusinessStoreError.validation("没有找到这条库存。")
         }
 
-        guard let index = snapshot.inventoryItems.firstIndex(where: { $0.product.code == productCode }) else {
-            throw BusinessStoreError.validation("Inventory item was not found.")
-        }
-
-        let newQuantity = snapshot.inventoryItems[index].quantity + quantityChange
-        guard newQuantity >= 0 else {
-            throw BusinessStoreError.validation("Stock cannot be negative.")
-        }
-
-        snapshot.inventoryItems[index].quantity = newQuantity
-        appendInventoryMovement(
-            type: .adjustment,
-            product: snapshot.inventoryItems[index].product,
-            quantityChange: quantityChange,
-            reference: note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "手动调整" : note
-        )
-        sortInventory()
+        snapshot.inventoryItems.removeAll { $0.id == id }
         persistSnapshot()
-        message = "库存已调整。"
+        message = "\(item.name) 已删除。"
     }
 
-    func deleteInventoryItem(productCode: String) throws {
-        guard let item = snapshot.inventoryItems.first(where: { $0.product.code == productCode }) else {
-            throw BusinessStoreError.validation("Inventory item was not found.")
+    func addStockInRecord(from draft: StringStockInDraft) throws {
+        if let validationMessage = draft.validationMessage {
+            throw BusinessStoreError.validation(validationMessage)
         }
 
-        snapshot.inventoryItems.removeAll { $0.product.code == productCode }
-        snapshot.products.removeAll { $0.code == productCode }
-        appendInventoryMovement(
-            type: .adjustment,
-            product: item.product,
-            quantityChange: -item.quantity,
-            reference: "删除库存商品"
-        )
+        let record = draft.makeRecord(id: nextStockInID())
+        snapshot.stockInRecords.append(record)
+        applyStockIn(record)
+        sortBusinessData()
         persistSnapshot()
-        message = "\(item.product.name) 已删除。"
+        message = "\(record.stringName) 入库 \(record.quantity) 包。"
+    }
+
+    func deleteStockInRecord(id: String) throws {
+        guard let record = snapshot.stockInRecords.first(where: { $0.id == id }) else {
+            throw BusinessStoreError.validation("没有找到这条入库记录。")
+        }
+
+        try reverseStockIn(record)
+        snapshot.stockInRecords.removeAll { $0.id == id }
+        sortBusinessData()
+        persistSnapshot()
+        message = "\(record.id) 已删除。"
+    }
+
+    func clearInventoryItems() {
+        snapshot.inventoryItems = []
+        persistSnapshot()
+        message = "线材库存已清空。"
+    }
+
+    func clearStockInRecords() {
+        snapshot.stockInRecords = []
+        persistSnapshot()
+        message = "入库记录已清空。"
     }
 
     func resetBusinessData() {
         snapshot = InitialBusinessData.makeSnapshot()
         persistSnapshot()
-        message = "业务数据已清空。"
+        message = "库存和入库记录已清空。"
     }
 
     func refreshDashboard() {
@@ -415,195 +207,84 @@ final class BusinessStore: ObservableObject {
         Self.shortDateFormatter.string(from: date)
     }
 
-    private func isToday(_ date: Date) -> Bool {
-        calendar.isDate(date, inSameDayAs: refreshedAt)
+    private func makeProfitRecordRow(for record: StringingRecord) -> ProfitRecordRow {
+        let matchedCost = costPerPack(for: record.stringName)
+        let stringCost = matchedCost ?? 0
+
+        return ProfitRecordRow(
+            id: record.id,
+            recordID: record.id,
+            date: record.receivedAt,
+            customerName: record.customerName,
+            racketModel: record.racketModel,
+            stringName: record.stringName,
+            revenue: record.price,
+            stringCost: stringCost,
+            grossProfit: record.price - stringCost,
+            hasMatchedCost: matchedCost != nil
+        )
+    }
+
+    private func costPerPack(for stringName: String) -> Double? {
+        snapshot.inventoryItems.first { item in
+            item.normalizedName == stringName.normalizedInventoryKey
+        }?.costPerPack
+    }
+
+    private func applyStockIn(_ record: StringStockInRecord) {
+        if let index = findInventoryIndex(named: record.stringName) {
+            snapshot.inventoryItems[index].quantity += record.quantity
+            snapshot.inventoryItems[index].costPerPack = record.costPerPack
+            if !record.brand.businessTrimmed.isEmpty {
+                snapshot.inventoryItems[index].brand = record.brand.businessTrimmed
+            }
+            return
+        }
+
+        snapshot.inventoryItems.append(
+            StringInventoryItem(
+                id: UUID(),
+                name: record.stringName,
+                brand: record.brand,
+                costPerPack: record.costPerPack,
+                quantity: record.quantity,
+                lowStockThreshold: 0,
+                note: record.note
+            )
+        )
+    }
+
+    private func reverseStockIn(_ record: StringStockInRecord) throws {
+        guard let index = findInventoryIndex(named: record.stringName) else {
+            throw BusinessStoreError.validation("库存里找不到这条入库记录对应的线材。")
+        }
+
+        let newQuantity = snapshot.inventoryItems[index].quantity - record.quantity
+        guard newQuantity >= 0 else {
+            throw BusinessStoreError.validation("删除后库存会变成负数，请先调整库存数量。")
+        }
+
+        snapshot.inventoryItems[index].quantity = newQuantity
+    }
+
+    private func findInventoryIndex(named name: String) -> Int? {
+        let key = name.normalizedInventoryKey
+        return snapshot.inventoryItems.firstIndex { $0.normalizedName == key }
     }
 
     private func isThisMonth(_ date: Date) -> Bool {
         calendar.isDate(date, equalTo: refreshedAt, toGranularity: .month)
     }
 
-    private func upsertProduct(_ product: BusinessProduct) {
-        if let index = snapshot.products.firstIndex(where: { $0.code == product.code }) {
-            snapshot.products[index] = product
-        } else {
-            snapshot.products.append(product)
-        }
-
-        snapshot.products.sort { $0.code < $1.code }
-    }
-
-    private func appendInventoryMovement(
-        type: InventoryMovementType,
-        product: BusinessProduct,
-        quantityChange: Int,
-        reference: String
-    ) {
-        let movement = InventoryMovement(
-            id: nextInventoryMovementID(),
-            date: Date(),
-            type: type,
-            productCode: product.code,
-            productName: product.name,
-            quantityChange: quantityChange,
-            reference: reference
-        )
-
-        snapshot.inventoryMovements.append(movement)
-        snapshot.inventoryMovements.sort { $0.date > $1.date }
-    }
-
-    private func applyInventoryChange(
-        productCode: String,
-        productName: String,
-        quantityChange: Int,
-        unitCost: Double,
-        reference: String,
-        type: InventoryMovementType,
-        createMissingItem: Bool
-    ) {
-        if let index = snapshot.inventoryItems.firstIndex(where: { $0.product.code == productCode }) {
-            snapshot.inventoryItems[index].quantity += quantityChange
-            appendInventoryMovement(
-                type: type,
-                product: snapshot.inventoryItems[index].product,
-                quantityChange: quantityChange,
-                reference: reference
-            )
-            return
-        }
-
-        guard createMissingItem else {
-            return
-        }
-
-        let product = BusinessProduct(
-            code: productCode,
-            name: productName,
-            category: .string,
-            brand: "",
-            salePrice: unitCost,
-            costPrice: unitCost
-        )
-        let newItem = InventoryItem(
-            product: product,
-            quantity: max(quantityChange, 0),
-            lowStockThreshold: 0,
-            location: ""
-        )
-
-        upsertProduct(product)
-        snapshot.inventoryItems.append(newItem)
-        appendInventoryMovement(
-            type: type,
-            product: product,
-            quantityChange: quantityChange,
-            reference: reference
-        )
-    }
-
-    private func ensureInventoryCanDecrease(productCode: String, quantity: Int) throws {
-        guard let item = snapshot.inventoryItems.first(where: { $0.product.code == productCode }) else {
-            throw BusinessStoreError.validation("Product \(productCode) is not in inventory.")
-        }
-
-        if item.quantity < quantity {
-            throw BusinessStoreError.validation("Not enough stock for \(item.product.name).")
-        }
-    }
-
-    private func applyPaymentChange(for record: MoneyRecord, multiplier: Double) throws {
-        let relatedOrderID = record.relatedOrderID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !relatedOrderID.isEmpty else {
-            return
-        }
-
-        switch record.direction {
-        case .incoming:
-            try updateSalesOrderPayment(id: relatedOrderID, amountChange: record.amount * multiplier)
-        case .outgoing:
-            try updatePurchaseOrderPayment(id: relatedOrderID, amountChange: record.amount * multiplier)
-        }
-    }
-
-    private func updateSalesOrderPayment(id: String, amountChange: Double) throws {
-        guard let index = snapshot.salesOrders.firstIndex(where: { $0.id == id }) else {
-            throw BusinessStoreError.validation("Related sales order \(id) was not found.")
-        }
-
-        let order = snapshot.salesOrders[index]
-        let newPaidAmount = order.paidAmount + amountChange
-        try validatePaymentAmount(newPaidAmount, totalAmount: order.totalAmount)
-
-        snapshot.salesOrders[index] = SalesOrder(
-            id: order.id,
-            date: order.date,
-            customerName: order.customerName,
-            items: order.items,
-            paidAmount: newPaidAmount,
-            status: paymentStatus(totalAmount: order.totalAmount, paidAmount: newPaidAmount)
-        )
-    }
-
-    private func updatePurchaseOrderPayment(id: String, amountChange: Double) throws {
-        guard let index = snapshot.purchaseOrders.firstIndex(where: { $0.id == id }) else {
-            throw BusinessStoreError.validation("Related purchase order \(id) was not found.")
-        }
-
-        let order = snapshot.purchaseOrders[index]
-        let newPaidAmount = order.paidAmount + amountChange
-        try validatePaymentAmount(newPaidAmount, totalAmount: order.totalAmount)
-
-        snapshot.purchaseOrders[index] = PurchaseOrder(
-            id: order.id,
-            date: order.date,
-            supplierName: order.supplierName,
-            items: order.items,
-            paidAmount: newPaidAmount,
-            status: paymentStatus(totalAmount: order.totalAmount, paidAmount: newPaidAmount)
-        )
-    }
-
-    private func validatePaymentAmount(_ paidAmount: Double, totalAmount: Double) throws {
-        let tolerance = 0.0001
-        if paidAmount < -tolerance {
-            throw BusinessStoreError.validation("Paid amount cannot be negative.")
-        }
-
-        if paidAmount - totalAmount > tolerance {
-            throw BusinessStoreError.validation("Paid amount cannot be greater than order total.")
-        }
-    }
-
-    private func paymentStatus(totalAmount: Double, paidAmount: Double) -> BusinessOrderStatus {
-        paidAmount >= totalAmount ? .paid : .unpaid
-    }
-
-    private func nextInventoryMovementID() -> String {
-        nextID(prefix: "IM", existingIDs: snapshot.inventoryMovements.map(\.id))
-    }
-
-    private func nextPurchaseOrderID() -> String {
-        nextID(prefix: "PO", existingIDs: snapshot.purchaseOrders.map(\.id))
-    }
-
-    private func nextSalesOrderID() -> String {
-        nextID(prefix: "SO", existingIDs: snapshot.salesOrders.map(\.id))
-    }
-
-    private func nextMoneyRecordID() -> String {
-        nextID(prefix: "MR", existingIDs: snapshot.moneyRecords.map(\.id))
-    }
-
-    private func nextID(prefix: String, existingIDs: [String]) -> String {
-        let nextNumber = existingIDs
-            .compactMap { id in
-                Int(id.replacingOccurrences(of: "\(prefix)-", with: ""))
+    private func nextStockInID() -> String {
+        let nextNumber = snapshot.stockInRecords
+            .compactMap { record in
+                Int(record.id.replacingOccurrences(of: "SI-", with: ""))
             }
             .max()
             .map { $0 + 1 } ?? 1
 
-        return "\(prefix)-\(String(format: "%04d", nextNumber))"
+        return "SI-\(String(format: "%04d", nextNumber))"
     }
 
     private func sortInventory() {
@@ -612,16 +293,13 @@ final class BusinessStore: ObservableObject {
                 return first.isLowStock && !second.isLowStock
             }
 
-            return first.product.code < second.product.code
+            return first.name < second.name
         }
     }
 
     private func sortBusinessData() {
         sortInventory()
-        snapshot.purchaseOrders.sort { $0.date > $1.date }
-        snapshot.salesOrders.sort { $0.date > $1.date }
-        snapshot.moneyRecords.sort { $0.date > $1.date }
-        snapshot.inventoryMovements.sort { $0.date > $1.date }
+        snapshot.stockInRecords.sort { $0.date > $1.date }
     }
 
     private func persistSnapshot() {
@@ -629,7 +307,7 @@ final class BusinessStore: ObservableObject {
             let data = try Self.makeJSONEncoder().encode(snapshot)
             try data.write(to: fileURL, options: [.atomic])
         } catch {
-            message = "Business data could not be saved."
+            message = "库存数据保存失败。"
         }
     }
 
@@ -662,12 +340,18 @@ final class BusinessStore: ObservableObject {
 
         try? fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
 
-        return folderURL.appendingPathComponent("warehouse-data.json")
+        return folderURL.appendingPathComponent("string-business-data.json")
     }
 
     private static let shortDateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM-dd"
+        return formatter
+    }()
+
+    private static let monthTitleFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy 年 MM 月"
         return formatter
     }()
 }

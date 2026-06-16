@@ -1,8 +1,8 @@
-# Badminton Stringing Operations
+# Badminton Stringing Records
 
-This is a native SwiftUI iPhone app for badminton stringing records, product stock, purchase in, sales out, payment tracking, and daily operating data.
+This is a native SwiftUI iPhone app for a personal badminton stringing home service.
 
-The warehouse business data starts empty. Add your own inventory, purchase orders, sales orders, and cashflow records inside the app; changes are saved locally on the device.
+The app keeps the original stringing record tool and adds a simple string inventory, stock-in log, and monthly profit/loss overview. It is intentionally not a full purchase/sales/cashflow warehouse system.
 
 ## Requirements
 
@@ -21,39 +21,42 @@ For a physical iPhone, Xcode may ask you to select a Development Team under Sign
 
 ## Main Modules
 
-### Stringing Ops Home
+### 经营概览
 
-The app opens with these modules:
+The overview reads existing stringing records from `RecordStore.records` and combines them with string inventory cost data.
 
-- 经营驾驶舱
-- 穿线记录工具
-- 进货管理
-- 销售管理
-- 库存管理
-- 钱流管理
-- 信息中心
-- 系统维护
+It shows:
 
-On iPhone, each row opens as a navigation page. On iPad, the app uses a split-view layout.
+- 本月总收入
+- 本月线材使用成本
+- 本月毛利润
+- 本月进货支出
+- 本月净利润 / 亏损
+- 本月穿线单数
+- 低库存提醒
+- 未匹配成本
 
-### 经营驾驶舱 Dashboard
+Profit logic:
 
-The dashboard calculates operating data from saved app data:
+- Single-job profit = stringing record `price` - matched string `costPerPack`
+- Monthly revenue = all current-month stringing record prices
+- Monthly string cost = matched string costs for current-month stringing records
+- Monthly gross profit = monthly revenue - monthly string cost
+- Monthly stock-in expense = total cost of current-month stock-in records
+- Monthly net cash result = monthly gross profit - monthly stock-in expense
 
-- 今日销售额
-- 本月销售额
-- 今日销售单数
-- 本月销售单数
-- 应收合计
-- 应付合计
-- 低库存预警数
-- 今日库存流水数
+The app matches string cost by name:
 
-It also provides quick entry buttons for sales out, purchase in, inventory, low-stock warnings, receive payment, and make payment.
+- Stringing record `stringName`
+- String inventory item `name`
+
+If a stringing record cannot find a matching inventory item, its string cost is counted as `0` and the overview marks it as unmatched.
 
 ### 穿线记录工具
 
-The stringing record tool supports:
+The original stringing record tool is preserved.
+
+It supports:
 
 - Add, edit, and delete stringing records
 - Track work status, payment status, and pickup status
@@ -63,117 +66,97 @@ The stringing record tool supports:
 - Export CSV
 - Import JSON backup
 
-### 进货管理
+### 线材库存
 
-Use this page to add purchase orders.
+Use this page to maintain string inventory:
 
-When a purchase order is saved:
+- Add a string
+- Edit string name, brand, cost per pack, quantity, low-stock threshold, and note
+- Delete a string
+- View current quantity
+- View cost per pack
+- See low-stock warnings
 
-- The purchase order is saved locally.
-- The purchased quantity is added to inventory.
-- A stock movement is created.
-- If `已付款` is greater than zero, a payment record is created.
-- Any unpaid balance appears in `待付款`.
+Low stock is shown when quantity is less than or equal to the low-stock threshold.
 
-### 销售管理
+### 入库记录
 
-Use this page to add sales orders.
+Use this page to record string purchases and stock-ins.
 
-When a sales order is saved:
+Each stock-in record saves:
 
-- The app checks that the product exists in inventory.
-- The app checks that stock is enough.
-- The sold quantity is deducted from inventory.
-- A stock movement is created.
-- If `已收款` is greater than zero, a payment record is created.
-- Any unpaid balance appears in `应收款`.
+- Date
+- String name
+- Brand
+- Quantity
+- Cost per pack
+- Total cost
+- Note
 
-### 库存管理
+When a stock-in record is saved:
 
-Use this page to maintain product and stock data:
+- The stock-in record is saved locally.
+- Total cost is calculated as `quantity x costPerPack`.
+- Matching string inventory quantity increases automatically.
+- If the string does not exist in inventory, the app creates it.
+- If the string already exists, the latest cost per pack is used.
 
-- Add inventory items
-- Edit product code, product name, category, brand, sale price, cost price, quantity, warning threshold, and location
-- Adjust stock quantity
-- Delete inventory items
-- View low-stock warnings
-- View inventory movements
-
-### 钱流管理
-
-Use this page to add incoming and outgoing money records.
-
-If you enter a related order ID:
-
-- `收款` updates the matching sales order's paid amount.
-- `付款` updates the matching purchase order's paid amount.
-- The app prevents payment from exceeding the order total.
-
-Leave the related order ID blank for standalone cashflow notes.
-
-### 信息中心
-
-The information center shows saved product data. Product data is created from inventory and purchase records, then can be edited from the inventory page.
+Deleting a stock-in record tries to subtract that quantity from matching inventory. If that would make inventory negative, the app blocks the delete.
 
 ### 系统维护
 
-The maintenance page shows local save status and includes a button to clear warehouse business data. This clears purchase, sales, inventory, cashflow, product, movement, and notice data. It does not delete stringing records.
+The maintenance page can clear:
 
-## How To Modify Inventory
+- String inventory only
+- Stock-in records only
+- Both string inventory and stock-in records
 
-There are three normal ways to change inventory:
-
-1. Open `库存管理`, tap the `+` button, and add an inventory item manually.
-2. Open `进货管理`, tap the `+` button, and save a purchase order. The purchased quantity is added automatically.
-3. Open `销售管理`, tap the `+` button, and save a sales order. The sold quantity is deducted automatically after the stock check passes.
-
-For an existing item, use the `...` menu in `库存管理`:
-
-- `库存调整`: increase or decrease stock quantity and create an inventory movement.
-- `编辑商品`: edit product and inventory details.
-- `删除`: remove the item from inventory.
-
-All changes are saved after tapping `Save`.
+These actions do not delete stringing records.
 
 ## Local Data
 
-Warehouse business data is saved in the app sandbox:
+Stringing records are saved separately by `RecordStore`:
 
-`Application Support/StringingRecords/warehouse-data.json`
+`Application Support/StringingRecords/records.json`
 
-Stringing records are saved separately by `RecordStore`.
+String inventory and stock-in records are saved by `BusinessStore`:
+
+`Application Support/StringingRecords/string-business-data.json`
 
 ## Important Source Files
 
 - `StringingRecords/Views/AppShellView.swift`
-  - Main app navigation shell.
-
-- `StringingRecords/Views/DashboardView.swift`
-  - Business dashboard and quick entry buttons.
-
-- `StringingRecords/Views/BusinessModulePages.swift`
-  - Purchase, sales, inventory, cashflow, information center, and maintenance pages.
-
-- `StringingRecords/Views/InventoryEditorViews.swift`
-  - Inventory item forms, stock adjustment view, and inventory row controls.
-
-- `StringingRecords/Views/TransactionEditorViews.swift`
-  - Purchase order, sales order, and money record forms.
+  - Main navigation shell.
 
 - `StringingRecords/Views/ContentView.swift`
-  - Stringing records page.
+  - Original stringing records page.
 
 - `StringingRecords/Views/RecordFormView.swift`
   - Add/edit stringing record form.
 
+- `StringingRecords/Models/StringingRecord.swift`
+  - Stringing record model and draft validation.
+
+- `StringingRecords/Stores/RecordStore.swift`
+  - Saves and loads stringing records.
+
+- `StringingRecords/Views/DashboardView.swift`
+  - Monthly profit/loss overview.
+
+- `StringingRecords/Views/BusinessModulePages.swift`
+  - String inventory, stock-in records, and maintenance pages.
+
+- `StringingRecords/Views/InventoryEditorViews.swift`
+  - Add/edit string inventory forms and inventory rows.
+
+- `StringingRecords/Views/TransactionEditorViews.swift`
+  - Stock-in record form and rows.
+
 - `StringingRecords/Models/BusinessModels.swift`
-  - Business data models and form drafts.
+  - String inventory, stock-in, and profit summary models.
 
 - `StringingRecords/Stores/BusinessStore.swift`
-  - Loads, saves, and updates warehouse business data.
-
-- `StringingRecords/Data/InitialBusinessData.swift`
-  - Empty initial warehouse business dataset.
+  - Loads, saves, and updates string inventory and stock-in data.
 
 ## Build Cache
 

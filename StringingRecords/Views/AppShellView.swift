@@ -70,16 +70,10 @@ struct BusinessModuleView: View {
                 DashboardView(onNavigate: onNavigate)
             case .stringingRecords:
                 StringingRecordsView()
-            case .purchase:
-                PurchaseManagementView()
-            case .sales:
-                SalesManagementView()
             case .inventory:
                 InventoryManagementView()
-            case .cashflow:
-                CashflowManagementView()
-            case .information:
-                InformationCenterView()
+            case .stockIn:
+                StockInRecordsView()
             case .maintenance:
                 SystemMaintenanceView()
             }

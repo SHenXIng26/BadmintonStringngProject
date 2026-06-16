@@ -2,33 +2,29 @@ import SwiftUI
 
 enum InventorySheet: Identifiable {
     case new
-    case edit(InventoryItem)
-    case adjust(InventoryItem)
+    case edit(StringInventoryItem)
 
     var id: String {
         switch self {
         case .new:
             return "new"
         case .edit(let item):
-            return "edit-\(item.product.code)"
-        case .adjust(let item):
-            return "adjust-\(item.product.code)"
+            return "edit-\(item.id.uuidString)"
         }
     }
 }
 
-struct InventoryItemRowView: View {
-    let item: InventoryItem
+struct StringInventoryItemRowView: View {
+    let item: StringInventoryItem
     let moneyText: (Double) -> String
     let onEdit: () -> Void
-    let onAdjust: () -> Void
     let onDelete: () -> Void
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(item.product.name)
+                    Text(item.name)
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
@@ -38,33 +34,31 @@ struct InventoryItemRowView: View {
                     )
                 }
 
-                Text("\(item.product.code) · \(item.product.brand) · \(item.product.category.rawValue)")
+                Text(item.brand.isEmpty ? "未设置品牌" : item.brand)
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("位置：\(item.location.isEmpty ? "未设置" : item.location) · 安全库存：\(item.lowStockThreshold)")
+                Text("成本 \(moneyText(item.costPerPack)) / 包 · 提醒 \(item.lowStockThreshold) 包")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("售价 \(moneyText(item.product.salePrice)) · 成本 \(moneyText(item.product.costPrice))")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                if !item.note.isEmpty {
+                    Text(item.note)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer(minLength: 10)
 
             VStack(alignment: .trailing, spacing: 8) {
-                Text("\(item.quantity)")
+                Text("\(item.quantity) 包")
                     .font(.title3)
                     .fontWeight(.bold)
 
                 Menu {
-                    Button(action: onAdjust) {
-                        Label("库存调整", systemImage: "plusminus")
-                    }
-
                     Button(action: onEdit) {
-                        Label("编辑商品", systemImage: "pencil")
+                        Label("编辑线材", systemImage: "pencil")
                     }
 
                     Button(role: .destructive, action: onDelete) {
@@ -80,63 +74,50 @@ struct InventoryItemRowView: View {
     }
 }
 
-struct InventoryItemFormView: View {
+struct StringInventoryItemFormView: View {
     @Environment(\.dismiss) private var dismiss
 
-    let item: InventoryItem?
-    let onSave: (InventoryItemDraft) throws -> Void
+    let item: StringInventoryItem?
+    let onSave: (StringInventoryItemDraft) throws -> Void
 
-    @State private var draft: InventoryItemDraft
+    @State private var draft: StringInventoryItemDraft
     @State private var alertMessage: String?
 
     private var isEditing: Bool {
         item != nil
     }
 
-    init(item: InventoryItem?, onSave: @escaping (InventoryItemDraft) throws -> Void) {
+    init(item: StringInventoryItem?, onSave: @escaping (StringInventoryItemDraft) throws -> Void) {
         self.item = item
         self.onSave = onSave
-        _draft = State(initialValue: item.map(InventoryItemDraft.init) ?? InventoryItemDraft())
+        _draft = State(initialValue: item.map(StringInventoryItemDraft.init) ?? StringInventoryItemDraft())
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("商品资料") {
-                    TextField("商品编码", text: $draft.code)
-                        .textInputAutocapitalization(.characters)
-                        .disabled(isEditing)
-
-                    TextField("商品名称", text: $draft.name)
+                Section("线材资料") {
+                    TextField("线材名称，例如 Yonex BG80", text: $draft.name)
                         .textInputAutocapitalization(.words)
 
-                    Picker("分类", selection: $draft.category) {
-                        ForEach(ProductCategory.allCases) { category in
-                            Text(category.rawValue).tag(category)
-                        }
-                    }
-
-                    TextField("品牌", text: $draft.brand)
+                    TextField("品牌，例如 Yonex", text: $draft.brand)
                         .textInputAutocapitalization(.words)
                 }
 
-                Section("价格") {
-                    TextField("售价", value: $draft.salePrice, format: .number.precision(.fractionLength(2)))
+                Section("成本与库存") {
+                    TextField("每包成本", value: $draft.costPerPack, format: .number.precision(.fractionLength(2)))
                         .keyboardType(.decimalPad)
 
-                    TextField("成本", value: $draft.costPrice, format: .number.precision(.fractionLength(2)))
-                        .keyboardType(.decimalPad)
+                    Stepper("当前库存：\(draft.quantity) 包", value: $draft.quantity, in: 0...9999)
+                    Stepper("低库存提醒：\(draft.lowStockThreshold) 包", value: $draft.lowStockThreshold, in: 0...9999)
                 }
 
-                Section("库存") {
-                    Stepper("当前库存：\(draft.quantity)", value: $draft.quantity, in: 0...9999)
-                    Stepper("低库存预警：\(draft.lowStockThreshold)", value: $draft.lowStockThreshold, in: 0...9999)
-
-                    TextField("库存位置", text: $draft.location)
-                        .textInputAutocapitalization(.words)
+                Section("备注") {
+                    TextField("可选", text: $draft.note, axis: .vertical)
+                        .lineLimit(2...4)
                 }
             }
-            .navigationTitle(isEditing ? "编辑库存" : "新增库存")
+            .navigationTitle(isEditing ? "编辑线材" : "新增线材")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -152,7 +133,7 @@ struct InventoryItemFormView: View {
                     .fontWeight(.bold)
                 }
             }
-            .alert("Inventory", isPresented: alertBinding) {
+            .alert("线材库存", isPresented: alertBinding) {
                 Button("OK", role: .cancel) {}
             } message: {
                 Text(alertMessage ?? "")
@@ -173,81 +154,6 @@ struct InventoryItemFormView: View {
     private func save() {
         do {
             try onSave(draft)
-            dismiss()
-        } catch {
-            alertMessage = error.localizedDescription
-        }
-    }
-}
-
-struct InventoryAdjustmentView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    let item: InventoryItem
-    let onSave: (Int, String) throws -> Void
-
-    @State private var quantityChange = 0
-    @State private var note = ""
-    @State private var alertMessage: String?
-
-    private var resultingQuantity: Int {
-        item.quantity + quantityChange
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("商品") {
-                    LabeledContent("名称", value: item.product.name)
-                    LabeledContent("编码", value: item.product.code)
-                    LabeledContent("当前库存", value: "\(item.quantity)")
-                    LabeledContent("调整后库存", value: "\(resultingQuantity)")
-                }
-
-                Section("库存调整") {
-                    Stepper("变化数量：\(quantityChange)", value: $quantityChange, in: -999...999)
-
-                    TextField("备注，例如补货、盘点、损耗", text: $note)
-                        .textInputAutocapitalization(.sentences)
-                }
-            }
-            .navigationTitle("库存调整")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        save()
-                    }
-                    .fontWeight(.bold)
-                }
-            }
-            .alert("Inventory", isPresented: alertBinding) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(alertMessage ?? "")
-            }
-        }
-    }
-
-    private var alertBinding: Binding<Bool> {
-        Binding {
-            alertMessage != nil
-        } set: { isPresented in
-            if !isPresented {
-                alertMessage = nil
-            }
-        }
-    }
-
-    private func save() {
-        do {
-            try onSave(quantityChange, note)
             dismiss()
         } catch {
             alertMessage = error.localizedDescription
