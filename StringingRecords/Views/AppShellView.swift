@@ -102,5 +102,8 @@ struct BusinessModuleView: View {
         }
         .navigationTitle(module.title)
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: DashboardDetailRoute.self) { route in
+            DashboardDetailView(route: route)
+        }
     }
 }

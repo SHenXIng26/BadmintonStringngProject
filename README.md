@@ -48,9 +48,11 @@ Profit logic:
 The app matches string cost by name:
 
 - Stringing record `stringName`
-- String inventory item `name`
+- String inventory item display name (`name - color`)
 
 If a stringing record cannot find a matching inventory item, its string cost is counted as `0` and the overview marks it as unmatched.
+
+Dashboard statistic cards can be opened to view their corresponding monthly records, costs, profit, stock-in expense, net result, completed jobs, and low-stock items.
 
 ### 穿线记录工具
 
@@ -71,13 +73,16 @@ It supports:
 Use this page to maintain string inventory:
 
 - Add a string
-- Edit string name, brand, cost per pack, quantity, low-stock threshold, and note
+- Edit string name, brand, color, cost per pack, quantity, low-stock threshold, and note
 - Delete a string
 - View current quantity
 - View cost per pack
 - See low-stock warnings
+- Export inventory JSON
+- Import inventory JSON
 
 Low stock is shown when quantity is less than or equal to the low-stock threshold.
+Different colors of the same string are stored as separate inventory items. New stringing records select the exact inventory display name, such as `Yonex BG80 - White`.
 
 ### 入库记录
 
@@ -88,6 +93,7 @@ Each stock-in record saves:
 - Date
 - String name
 - Brand
+- Color
 - Quantity
 - Cost per pack
 - Total cost

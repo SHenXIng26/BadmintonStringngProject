@@ -62,14 +62,14 @@ final class BusinessStore: ObservableObject {
         let summary = profitSummary(for: records)
 
         return [
-            DashboardMetric(title: "本月穿线收入", value: moneyText(summary.totalRevenue), detail: "本月已收款穿线记录", systemImage: "dollarsign.circle", color: .green),
-            DashboardMetric(title: "本月线材成本", value: moneyText(summary.stringUsageCost), detail: "本月已完成穿线记录", systemImage: "scissors", color: .orange),
-            DashboardMetric(title: "本月毛利润", value: moneyText(summary.grossProfit), detail: "收入 - 线材成本", systemImage: "chart.line.uptrend.xyaxis", color: .blue),
-            DashboardMetric(title: "本月进货支出", value: moneyText(summary.stockInExpense), detail: "本月入库记录合计", systemImage: "tray.and.arrow.down", color: .purple),
-            DashboardMetric(title: "本月盈亏", value: moneyText(summary.netCashResult), detail: "毛利润 - 进货支出", systemImage: summary.isProfitable ? "checkmark.seal" : "exclamationmark.triangle", color: summary.isProfitable ? .green : .red),
-            DashboardMetric(title: "本月穿线单数", value: "\(summary.completedRecordCount)", detail: "本月记录 \(summary.monthlyRecordCount) 单", systemImage: "list.clipboard", color: .teal),
-            DashboardMetric(title: "低库存提醒", value: "\(summary.lowStockCount)", detail: "低于或等于提醒数量", systemImage: "shippingbox", color: .yellow),
-            DashboardMetric(title: "未匹配成本", value: "\(summary.unmatchedCostCount)", detail: "库存中找不到同名线材", systemImage: "questionmark.circle", color: .gray)
+            DashboardMetric(title: "本月穿线收入", value: moneyText(summary.totalRevenue), detail: "本月已收款穿线记录", systemImage: "dollarsign.circle", color: .green, destination: .paidIncome),
+            DashboardMetric(title: "本月线材成本", value: moneyText(summary.stringUsageCost), detail: "本月已完成穿线记录", systemImage: "scissors", color: .orange, destination: .stringCost),
+            DashboardMetric(title: "本月毛利润", value: moneyText(summary.grossProfit), detail: "收入 - 线材成本", systemImage: "chart.line.uptrend.xyaxis", color: .blue, destination: .grossProfit),
+            DashboardMetric(title: "本月进货支出", value: moneyText(summary.stockInExpense), detail: "本月入库记录合计", systemImage: "tray.and.arrow.down", color: .purple, destination: .stockInExpense),
+            DashboardMetric(title: "本月盈亏", value: moneyText(summary.netCashResult), detail: "毛利润 - 进货支出", systemImage: summary.isProfitable ? "checkmark.seal" : "exclamationmark.triangle", color: summary.isProfitable ? .green : .red, destination: .netResult),
+            DashboardMetric(title: "本月穿线单数", value: "\(summary.completedRecordCount)", detail: "本月记录 \(summary.monthlyRecordCount) 单", systemImage: "list.clipboard", color: .teal, destination: .completedRecords),
+            DashboardMetric(title: "低库存提醒", value: "\(summary.lowStockCount)", detail: "低于或等于提醒数量", systemImage: "shippingbox", color: .yellow, destination: .lowStock),
+            DashboardMetric(title: "未匹配成本", value: "\(summary.unmatchedCostCount)", detail: "库存中找不到同名线材", systemImage: "questionmark.circle", color: .gray, destination: .unmatchedCost)
         ]
     }
 
@@ -108,13 +108,33 @@ final class BusinessStore: ObservableObject {
             }
     }
 
+    func recordsThisMonth(from records: [StringingRecord]) -> [StringingRecord] {
+        records
+            .filter { isThisMonth($0.receivedAt) }
+            .sorted { first, second in
+                if first.receivedAt != second.receivedAt {
+                    return first.receivedAt > second.receivedAt
+                }
+
+                return first.id > second.id
+            }
+    }
+
+    func paidRecordsThisMonth(from records: [StringingRecord]) -> [StringingRecord] {
+        recordsThisMonth(from: records).filter { $0.paymentStatus == .paid }
+    }
+
+    func completedRecordsThisMonth(from records: [StringingRecord]) -> [StringingRecord] {
+        recordsThisMonth(from: records).filter { $0.workStatus == .completed }
+    }
+
     func addInventoryItem(from draft: StringInventoryItemDraft) throws {
         if let validationMessage = draft.validationMessage {
             throw BusinessStoreError.validation(validationMessage)
         }
 
-        guard findInventoryIndex(named: draft.name) == nil else {
-            throw BusinessStoreError.validation("库存里已经有同名线材。")
+        guard findInventoryIndex(named: draft.name, color: draft.color) == nil else {
+            throw BusinessStoreError.validation("库存里已经有相同名称和颜色的线材。")
         }
 
         snapshot.inventoryItems.append(draft.makeItem())
@@ -132,8 +152,8 @@ final class BusinessStore: ObservableObject {
             throw BusinessStoreError.validation("没有找到这条库存。")
         }
 
-        if let duplicateIndex = findInventoryIndex(named: draft.name), duplicateIndex != index {
-            throw BusinessStoreError.validation("库存里已经有同名线材。")
+        if let duplicateIndex = findInventoryIndex(named: draft.name, color: draft.color), duplicateIndex != index {
+            throw BusinessStoreError.validation("库存里已经有相同名称和颜色的线材。")
         }
 
         snapshot.inventoryItems[index] = draft.makeItem(id: id)
@@ -165,6 +185,38 @@ final class BusinessStore: ObservableObject {
         message = "\(record.stringName) 入库 \(record.quantity) 包。"
     }
 
+    func inventoryJSONData() throws -> Data {
+        let backup = StringInventoryBackup(
+            version: 1,
+            exportedAt: Date(),
+            items: snapshot.inventoryItems
+        )
+        return try Self.makeJSONEncoder().encode(backup)
+    }
+
+    @discardableResult
+    func importInventoryData(_ data: Data) throws -> Int {
+        let decoder = Self.makeJSONDecoder()
+        let importedItems: [StringInventoryItem]
+
+        if let backup = try? decoder.decode(StringInventoryBackup.self, from: data) {
+            importedItems = backup.items
+        } else {
+            do {
+                importedItems = try decoder.decode([StringInventoryItem].self, from: data)
+            } catch {
+                throw BusinessStoreError.validation("库存 JSON 格式不正确或字段类型不匹配。")
+            }
+        }
+
+        try validateImportedInventory(importedItems)
+        snapshot.inventoryItems = importedItems
+        sortInventory()
+        persistSnapshot()
+        message = "已导入 \(importedItems.count) 条线材库存。"
+        return importedItems.count
+    }
+
     func deleteStockInRecord(id: String) throws {
         guard let record = snapshot.stockInRecords.first(where: { $0.id == id }) else {
             throw BusinessStoreError.validation("没有找到这条入库记录。")
@@ -178,7 +230,7 @@ final class BusinessStore: ObservableObject {
     }
 
     func deductStringForCompletedRecord(_ record: StringingRecord) throws {
-        guard let index = findInventoryIndex(named: record.stringName) else {
+        guard let index = findInventoryIndex(forRecordStringName: record.stringName) else {
             throw BusinessStoreError.validation("库存里找不到 \(record.stringName)，不能标记为 Completed。")
         }
 
@@ -193,7 +245,7 @@ final class BusinessStore: ObservableObject {
     }
 
     func restoreStringForPendingRecord(_ record: StringingRecord) throws {
-        if let index = findInventoryIndex(named: record.stringName) {
+        if let index = findInventoryIndex(forRecordStringName: record.stringName) {
             snapshot.inventoryItems[index].quantity += 1
             sortInventory()
             persistSnapshot()
@@ -206,6 +258,7 @@ final class BusinessStore: ObservableObject {
                 id: UUID(),
                 name: record.stringName,
                 brand: "",
+                color: "",
                 costPerPack: 0,
                 quantity: 1,
                 lowStockThreshold: 0,
@@ -268,13 +321,15 @@ final class BusinessStore: ObservableObject {
     }
 
     private func costPerPack(for stringName: String) -> Double? {
-        snapshot.inventoryItems.first { item in
-            item.normalizedName == stringName.normalizedInventoryKey
-        }?.costPerPack
+        guard let index = findInventoryIndex(forRecordStringName: stringName) else {
+            return nil
+        }
+
+        return snapshot.inventoryItems[index].costPerPack
     }
 
     private func applyStockIn(_ record: StringStockInRecord) {
-        if let index = findInventoryIndex(named: record.stringName) {
+        if let index = findInventoryIndex(named: record.stringName, color: record.color) {
             snapshot.inventoryItems[index].quantity += record.quantity
             snapshot.inventoryItems[index].costPerPack = record.costPerPack
             if !record.brand.businessTrimmed.isEmpty {
@@ -288,6 +343,7 @@ final class BusinessStore: ObservableObject {
                 id: UUID(),
                 name: record.stringName,
                 brand: record.brand,
+                color: record.color,
                 costPerPack: record.costPerPack,
                 quantity: record.quantity,
                 lowStockThreshold: 0,
@@ -297,7 +353,7 @@ final class BusinessStore: ObservableObject {
     }
 
     private func reverseStockIn(_ record: StringStockInRecord) throws {
-        guard let index = findInventoryIndex(named: record.stringName) else {
+        guard let index = findInventoryIndex(named: record.stringName, color: record.color) else {
             throw BusinessStoreError.validation("库存里找不到这条入库记录对应的线材。")
         }
 
@@ -309,9 +365,52 @@ final class BusinessStore: ObservableObject {
         snapshot.inventoryItems[index].quantity = newQuantity
     }
 
-    private func findInventoryIndex(named name: String) -> Int? {
-        let key = name.normalizedInventoryKey
-        return snapshot.inventoryItems.firstIndex { $0.normalizedName == key }
+    private func findInventoryIndex(named name: String, color: String) -> Int? {
+        let nameKey = name.normalizedInventoryKey
+        let colorKey = color.normalizedInventoryKey
+        return snapshot.inventoryItems.firstIndex {
+            $0.normalizedName == nameKey && $0.normalizedColor == colorKey
+        }
+    }
+
+    private func findInventoryIndex(forRecordStringName stringName: String) -> Int? {
+        let displayKey = stringName.normalizedInventoryKey
+
+        if let exactIndex = snapshot.inventoryItems.firstIndex(where: {
+            $0.normalizedDisplayName == displayKey
+        }) {
+            return exactIndex
+        }
+
+        let legacyMatches = snapshot.inventoryItems.indices.filter {
+            snapshot.inventoryItems[$0].normalizedName == displayKey
+        }
+
+        return legacyMatches.count == 1 ? legacyMatches[0] : nil
+    }
+
+    private func validateImportedInventory(_ items: [StringInventoryItem]) throws {
+        var keys = Set<String>()
+        var ids = Set<UUID>()
+
+        for item in items {
+            guard !item.name.businessTrimmed.isEmpty else {
+                throw BusinessStoreError.validation("库存 JSON 中存在空的线材名称。")
+            }
+
+            guard item.costPerPack >= 0, item.quantity >= 0, item.lowStockThreshold >= 0 else {
+                throw BusinessStoreError.validation("库存 JSON 中的成本、数量或提醒数量不能为负数。")
+            }
+
+            let key = "\(item.normalizedName)|\(item.normalizedColor)"
+            guard keys.insert(key).inserted else {
+                throw BusinessStoreError.validation("库存 JSON 中存在重复的线材名称和颜色。")
+            }
+
+            guard ids.insert(item.id).inserted else {
+                throw BusinessStoreError.validation("库存 JSON 中存在重复的库存 ID。")
+            }
+        }
     }
 
     private func isThisMonth(_ date: Date) -> Bool {

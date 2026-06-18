@@ -24,7 +24,7 @@ struct StringInventoryItemRowView: View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(item.name)
+                    Text(item.displayName)
                         .font(.subheadline)
                         .fontWeight(.semibold)
 
@@ -101,6 +101,9 @@ struct StringInventoryItemFormView: View {
                         .textInputAutocapitalization(.words)
 
                     TextField("品牌，例如 Yonex", text: $draft.brand)
+                        .textInputAutocapitalization(.words)
+
+                    TextField("颜色，例如 White", text: $draft.color)
                         .textInputAutocapitalization(.words)
                 }
 

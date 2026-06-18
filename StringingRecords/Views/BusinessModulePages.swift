@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct InventoryManagementView: View {
     @EnvironmentObject private var businessStore: BusinessStore
@@ -6,6 +7,9 @@ struct InventoryManagementView: View {
     @State private var activeSheet: InventorySheet?
     @State private var deleteCandidate: StringInventoryItem?
     @State private var alertMessage: String?
+    @State private var isImporting = false
+    @State private var isExporting = false
+    @State private var exportDocument = RecordsExportDocument()
 
     var body: some View {
         ScrollView {
@@ -33,7 +37,7 @@ struct InventoryManagementView: View {
                     } else {
                         ForEach(businessStore.lowStockItems) { item in
                             CompactInfoRow(
-                                title: item.name,
+                                title: item.displayName,
                                 value: "\(item.quantity) 包",
                                 detail: "\(item.brand.isEmpty ? "未设置品牌" : item.brand) · 提醒 \(item.lowStockThreshold) 包",
                                 badge: "低库存",
@@ -47,7 +51,24 @@ struct InventoryManagementView: View {
         }
         .background(Color(.systemGroupedBackground))
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItemGroup(placement: .navigationBarTrailing) {
+                Menu {
+                    Button {
+                        prepareInventoryExport()
+                    } label: {
+                        Label("Export inventory JSON", systemImage: "square.and.arrow.up")
+                    }
+
+                    Button {
+                        isImporting = true
+                    } label: {
+                        Label("Import inventory JSON", systemImage: "square.and.arrow.down")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel("库存导入导出")
+
                 Button {
                     activeSheet = .new
                 } label: {
@@ -55,6 +76,22 @@ struct InventoryManagementView: View {
                 }
                 .accessibilityLabel("新增线材")
             }
+        }
+        .fileExporter(
+            isPresented: $isExporting,
+            document: exportDocument,
+            contentType: .json,
+            defaultFilename: "string-inventory"
+        ) { result in
+            if case .failure(let error) = result {
+                alertMessage = error.localizedDescription
+            }
+        }
+        .fileImporter(
+            isPresented: $isImporting,
+            allowedContentTypes: [.json]
+        ) { result in
+            importInventory(from: result)
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
@@ -73,7 +110,7 @@ struct InventoryManagementView: View {
             isPresented: deleteConfirmationBinding,
             presenting: deleteCandidate
         ) { item in
-            Button("删除 \(item.name)", role: .destructive) {
+            Button("删除 \(item.displayName)", role: .destructive) {
                 do {
                     try businessStore.deleteInventoryItem(id: item.id)
                     deleteCandidate = nil
@@ -85,7 +122,7 @@ struct InventoryManagementView: View {
                 deleteCandidate = nil
             }
         } message: { item in
-            Text("这会删除 \(item.name) 的库存资料，不会删除穿线记录。")
+            Text("这会删除 \(item.displayName) 的库存资料，不会删除穿线记录。")
         }
         .alert("线材库存", isPresented: alertBinding) {
             Button("OK", role: .cancel) {}
@@ -111,6 +148,33 @@ struct InventoryManagementView: View {
             if !isPresented {
                 alertMessage = nil
             }
+        }
+    }
+
+    private func prepareInventoryExport() {
+        do {
+            exportDocument = RecordsExportDocument(data: try businessStore.inventoryJSONData())
+            isExporting = true
+        } catch {
+            alertMessage = error.localizedDescription
+        }
+    }
+
+    private func importInventory(from result: Result<URL, Error>) {
+        do {
+            let url = try result.get()
+            let canAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if canAccess {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+
+            let data = try Data(contentsOf: url)
+            let count = try businessStore.importInventoryData(data)
+            alertMessage = "Imported \(count) inventory items."
+        } catch {
+            alertMessage = error.localizedDescription
         }
     }
 }
@@ -195,7 +259,7 @@ struct StockInRecordsView: View {
                 deleteCandidate = nil
             }
         } message: { record in
-            Text("删除后会尝试从 \(record.stringName) 库存里扣回 \(record.quantity) 包。")
+            Text("删除后会尝试从 \(record.displayName) 库存里扣回 \(record.quantity) 包。")
         }
         .alert("入库记录", isPresented: alertBinding) {
             Button("OK", role: .cancel) {}

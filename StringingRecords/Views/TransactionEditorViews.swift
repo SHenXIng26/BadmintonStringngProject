@@ -21,6 +21,7 @@ struct StockInRecordFormView: View {
                         onSelect: { item in
                             draft.stringName = item.name
                             draft.brand = item.brand
+                            draft.color = item.color
                             draft.costPerPack = item.costPerPack
                         }
                     )
@@ -29,6 +30,9 @@ struct StockInRecordFormView: View {
                         .textInputAutocapitalization(.words)
 
                     TextField("品牌", text: $draft.brand)
+                        .textInputAutocapitalization(.words)
+
+                    TextField("颜色", text: $draft.color)
                         .textInputAutocapitalization(.words)
                 }
 
@@ -99,7 +103,7 @@ struct StockInRecordRowView: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             VStack(alignment: .leading, spacing: 5) {
-                Text(record.stringName)
+                Text(record.displayName)
                     .font(.subheadline)
                     .fontWeight(.semibold)
 
@@ -155,7 +159,7 @@ private struct ExistingStringMenu: View {
                     Button {
                         onSelect(item)
                     } label: {
-                        Text("\(item.name) · \(item.quantity) 包")
+                        Text("\(item.displayName) · \(item.quantity) 包")
                     }
                 }
             }

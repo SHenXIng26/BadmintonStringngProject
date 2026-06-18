@@ -111,6 +111,18 @@ struct DashboardMetric: Identifiable {
     let detail: String
     let systemImage: String
     let color: Color
+    var destination: DashboardDetailRoute? = nil
+}
+
+enum DashboardDetailRoute: String, Hashable {
+    case paidIncome
+    case stringCost
+    case grossProfit
+    case stockInExpense
+    case netResult
+    case completedRecords
+    case lowStock
+    case unmatchedCost
 }
 
 struct BusinessSnapshot: Codable {
@@ -122,17 +134,73 @@ struct StringInventoryItem: Codable, Identifiable, Hashable {
     let id: UUID
     var name: String
     var brand: String
+    var color: String
     var costPerPack: Double
     var quantity: Int
     var lowStockThreshold: Int
     var note: String
 
+    init(
+        id: UUID,
+        name: String,
+        brand: String,
+        color: String,
+        costPerPack: Double,
+        quantity: Int,
+        lowStockThreshold: Int,
+        note: String
+    ) {
+        self.id = id
+        self.name = name
+        self.brand = brand
+        self.color = color
+        self.costPerPack = costPerPack
+        self.quantity = quantity
+        self.lowStockThreshold = lowStockThreshold
+        self.note = note
+    }
+
     var isLowStock: Bool {
         quantity <= lowStockThreshold
     }
 
+    var displayName: String {
+        color.businessTrimmed.isEmpty ? name : "\(name) - \(color)"
+    }
+
     var normalizedName: String {
         name.normalizedInventoryKey
+    }
+
+    var normalizedColor: String {
+        color.normalizedInventoryKey
+    }
+
+    var normalizedDisplayName: String {
+        displayName.normalizedInventoryKey
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case brand
+        case color
+        case costPerPack
+        case quantity
+        case lowStockThreshold
+        case note
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        brand = try container.decode(String.self, forKey: .brand)
+        color = try container.decodeIfPresent(String.self, forKey: .color) ?? ""
+        costPerPack = try container.decode(Double.self, forKey: .costPerPack)
+        quantity = try container.decode(Int.self, forKey: .quantity)
+        lowStockThreshold = try container.decode(Int.self, forKey: .lowStockThreshold)
+        note = try container.decode(String.self, forKey: .note)
     }
 }
 
@@ -141,17 +209,75 @@ struct StringStockInRecord: Codable, Identifiable, Hashable {
     var date: Date
     var stringName: String
     var brand: String
+    var color: String
     var quantity: Int
     var costPerPack: Double
     var note: String
+
+    init(
+        id: String,
+        date: Date,
+        stringName: String,
+        brand: String,
+        color: String,
+        quantity: Int,
+        costPerPack: Double,
+        note: String
+    ) {
+        self.id = id
+        self.date = date
+        self.stringName = stringName
+        self.brand = brand
+        self.color = color
+        self.quantity = quantity
+        self.costPerPack = costPerPack
+        self.note = note
+    }
 
     var totalCost: Double {
         Double(quantity) * costPerPack
     }
 
+    var displayName: String {
+        color.businessTrimmed.isEmpty ? stringName : "\(stringName) - \(color)"
+    }
+
     var normalizedStringName: String {
         stringName.normalizedInventoryKey
     }
+
+    var normalizedColor: String {
+        color.normalizedInventoryKey
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case date
+        case stringName
+        case brand
+        case color
+        case quantity
+        case costPerPack
+        case note
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        date = try container.decode(Date.self, forKey: .date)
+        stringName = try container.decode(String.self, forKey: .stringName)
+        brand = try container.decode(String.self, forKey: .brand)
+        color = try container.decodeIfPresent(String.self, forKey: .color) ?? ""
+        quantity = try container.decode(Int.self, forKey: .quantity)
+        costPerPack = try container.decode(Double.self, forKey: .costPerPack)
+        note = try container.decode(String.self, forKey: .note)
+    }
+}
+
+struct StringInventoryBackup: Codable {
+    let version: Int
+    let exportedAt: Date
+    let items: [StringInventoryItem]
 }
 
 struct ProfitSummary {
@@ -187,6 +313,7 @@ struct ProfitRecordRow: Identifiable, Hashable {
 struct StringInventoryItemDraft: Equatable {
     var name = ""
     var brand = ""
+    var color = ""
     var costPerPack = 0.0
     var quantity = 0
     var lowStockThreshold = 0
@@ -197,6 +324,7 @@ struct StringInventoryItemDraft: Equatable {
     init(item: StringInventoryItem) {
         name = item.name
         brand = item.brand
+        color = item.color
         costPerPack = item.costPerPack
         quantity = item.quantity
         lowStockThreshold = item.lowStockThreshold
@@ -232,6 +360,7 @@ struct StringInventoryItemDraft: Equatable {
             id: id,
             name: name.businessTrimmed,
             brand: brand.businessTrimmed,
+            color: color.businessTrimmed,
             costPerPack: costPerPack,
             quantity: quantity,
             lowStockThreshold: lowStockThreshold,
@@ -244,6 +373,7 @@ struct StringStockInDraft: Equatable {
     var date = Date()
     var stringName = ""
     var brand = ""
+    var color = ""
     var quantity = 1
     var costPerPack = 0.0
     var note = ""
@@ -253,6 +383,7 @@ struct StringStockInDraft: Equatable {
     init(item: StringInventoryItem) {
         stringName = item.name
         brand = item.brand
+        color = item.color
         costPerPack = item.costPerPack
     }
 
@@ -286,6 +417,7 @@ struct StringStockInDraft: Equatable {
             date: date,
             stringName: stringName.businessTrimmed,
             brand: brand.businessTrimmed,
+            color: color.businessTrimmed,
             quantity: quantity,
             costPerPack: costPerPack,
             note: note.businessTrimmed

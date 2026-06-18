@@ -127,7 +127,7 @@ struct RecordFormView: View {
 
     private var inventoryStrings: [String] {
         businessStore.snapshot.inventoryItems
-            .map(\.name)
+            .map(\.displayName)
             .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
             .sorted()
     }

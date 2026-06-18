@@ -55,6 +55,7 @@ struct SectionCard<Content: View>: View {
 
 struct StatisticCardView: View {
     let metric: DashboardMetric
+    var showsDisclosureIndicator = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -63,6 +64,12 @@ struct StatisticCardView: View {
                     .foregroundStyle(metric.color)
 
                 Spacer()
+
+                if showsDisclosureIndicator {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Text(metric.value)
