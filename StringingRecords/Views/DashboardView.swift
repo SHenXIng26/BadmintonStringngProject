@@ -77,10 +77,10 @@ private struct NetResultBanner: View {
                 .foregroundStyle(summary.isProfitable ? .green : .red)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(summary.isProfitable ? "本月盈利" : "本月亏损")
+                Text("本月盈亏")
                     .font(.headline)
 
-                Text("净现金结果：\(moneyText(summary.netCashResult))")
+                Text("\(summary.isProfitable ? "盈利" : "亏损")：\(moneyText(summary.netCashResult))")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }

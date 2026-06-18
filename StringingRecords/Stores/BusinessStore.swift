@@ -62,11 +62,11 @@ final class BusinessStore: ObservableObject {
         let summary = profitSummary(for: records)
 
         return [
-            DashboardMetric(title: "本月总收入", value: moneyText(summary.totalRevenue), detail: "来自穿线记录价格", systemImage: "dollarsign.circle", color: .green),
-            DashboardMetric(title: "本月线材成本", value: moneyText(summary.stringUsageCost), detail: "按 stringName 匹配库存成本", systemImage: "scissors", color: .orange),
+            DashboardMetric(title: "本月穿线收入", value: moneyText(summary.totalRevenue), detail: "本月已收款穿线记录", systemImage: "dollarsign.circle", color: .green),
+            DashboardMetric(title: "本月线材成本", value: moneyText(summary.stringUsageCost), detail: "本月已完成穿线记录", systemImage: "scissors", color: .orange),
             DashboardMetric(title: "本月毛利润", value: moneyText(summary.grossProfit), detail: "收入 - 线材成本", systemImage: "chart.line.uptrend.xyaxis", color: .blue),
             DashboardMetric(title: "本月进货支出", value: moneyText(summary.stockInExpense), detail: "本月入库记录合计", systemImage: "tray.and.arrow.down", color: .purple),
-            DashboardMetric(title: summary.isProfitable ? "本月净利润" : "本月亏损", value: moneyText(summary.netCashResult), detail: "毛利润 - 进货支出", systemImage: summary.isProfitable ? "checkmark.seal" : "exclamationmark.triangle", color: summary.isProfitable ? .green : .red),
+            DashboardMetric(title: "本月盈亏", value: moneyText(summary.netCashResult), detail: "毛利润 - 进货支出", systemImage: summary.isProfitable ? "checkmark.seal" : "exclamationmark.triangle", color: summary.isProfitable ? .green : .red),
             DashboardMetric(title: "本月穿线单数", value: "\(summary.completedRecordCount)", detail: "本月记录 \(summary.monthlyRecordCount) 单", systemImage: "list.clipboard", color: .teal),
             DashboardMetric(title: "低库存提醒", value: "\(summary.lowStockCount)", detail: "低于或等于提醒数量", systemImage: "shippingbox", color: .yellow),
             DashboardMetric(title: "未匹配成本", value: "\(summary.unmatchedCostCount)", detail: "库存中找不到同名线材", systemImage: "questionmark.circle", color: .gray)
@@ -249,7 +249,9 @@ final class BusinessStore: ObservableObject {
 
     private func makeProfitRecordRow(for record: StringingRecord) -> ProfitRecordRow {
         let matchedCost = costPerPack(for: record.stringName)
-        let stringCost = matchedCost ?? 0
+        let revenue = record.paymentStatus == .paid ? record.price : 0
+        let usesStringCost = record.workStatus == .completed
+        let stringCost = usesStringCost ? (matchedCost ?? 0) : 0
 
         return ProfitRecordRow(
             id: record.id,
@@ -258,10 +260,10 @@ final class BusinessStore: ObservableObject {
             customerName: record.customerName,
             racketModel: record.racketModel,
             stringName: record.stringName,
-            revenue: record.price,
+            revenue: revenue,
             stringCost: stringCost,
-            grossProfit: record.price - stringCost,
-            hasMatchedCost: matchedCost != nil
+            grossProfit: revenue - stringCost,
+            hasMatchedCost: !usesStringCost || matchedCost != nil
         )
     }
 

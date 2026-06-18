@@ -4,7 +4,7 @@ struct ContentView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     @StateObject private var businessStore = BusinessStore()
-    @State private var selectedModule: BusinessModule? = .dashboard
+    @State private var selectedModule = BusinessModule.dashboard
     @State private var compactPath: [BusinessModule] = []
 
     var body: some View {
@@ -42,18 +42,40 @@ struct ContentView: View {
 
     private var sidebarNavigation: some View {
         NavigationSplitView {
-            List(BusinessModule.allCases, selection: $selectedModule) { module in
-                Label(module.title, systemImage: module.systemImage)
-                    .tag(Optional(module))
+            List {
+                ForEach(BusinessModule.allCases) { module in
+                    Button {
+                        selectedModule = module
+                    } label: {
+                        HStack {
+                            Label(module.title, systemImage: module.systemImage)
+
+                            Spacer()
+
+                            if selectedModule == module {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .listRowBackground(
+                        selectedModule == module
+                        ? Color.accentColor.opacity(0.12)
+                        : Color.clear
+                    )
+                }
             }
             .listStyle(.sidebar)
             .navigationTitle("Stringing Ops")
         } detail: {
             NavigationStack {
                 BusinessModuleView(
-                    module: selectedModule ?? .dashboard,
+                    module: selectedModule,
                     onNavigate: { selectedModule = $0 }
                 )
+                .id(selectedModule)
             }
         }
     }

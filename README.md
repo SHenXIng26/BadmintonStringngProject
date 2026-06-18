@@ -27,7 +27,7 @@ The overview reads existing stringing records from `RecordStore.records` and com
 
 It shows:
 
-- 本月总收入
+- 本月穿线收入
 - 本月线材使用成本
 - 本月毛利润
 - 本月进货支出
@@ -39,8 +39,8 @@ It shows:
 Profit logic:
 
 - Single-job profit = stringing record `price` - matched string `costPerPack`
-- Monthly revenue = all current-month stringing record prices
-- Monthly string cost = matched string costs for current-month stringing records
+- Monthly stringing revenue = prices from current-month records whose payment status is `Paid`
+- Monthly string cost = matched string costs from current-month records whose work status is `Completed`
 - Monthly gross profit = monthly revenue - monthly string cost
 - Monthly stock-in expense = total cost of current-month stock-in records
 - Monthly net cash result = monthly gross profit - monthly stock-in expense
